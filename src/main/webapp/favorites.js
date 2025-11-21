@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderNav();
 
   const main = document.querySelector('main') || document.body;
+  if (!API.userId) { main.innerHTML = '<p>Please log in to see favorites.</p>'; return; }
 
   try {
     const r = await fetch(`favorites?userId=${encodeURIComponent(API.userId)}`);
@@ -32,7 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       del.style.marginLeft = '8px';
       del.addEventListener('click', async () => {
         const r2 = await fetch(
-          `favorites?eventId=${encodeURIComponent(f.eventId)}`,
+          `favorites?userId=${encodeURIComponent(API.userId)}&eventId=${encodeURIComponent(f.eventId)}`,
           { method: 'DELETE' }
         );
         const j2 = await r2.json();
