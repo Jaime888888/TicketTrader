@@ -1,0 +1,5 @@
+{
+  "event": { "name": "Los Angeles Lakers vs Boston Celtics", "venue": "Crypto.com Arena", "url": "https://www.ticketmaster.com/" },
+  "date":  { "localDate": "2025-12-25", "localTime": "17:00:00" },
+  "price": { "min": 75.0, "max": 250.0 }
+}
