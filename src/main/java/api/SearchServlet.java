@@ -42,13 +42,16 @@ public class SearchServlet extends HttpServlet {
 
     private List<Event> loadMockEvents() throws IOException {
         // Try to read the mock JSON file packaged in the webapp for quick local demos.
-        Path p = Path.of(getServletContext().getRealPath("/mock/getEvents/search"));
-        if (Files.exists(p)) {
-            String json = Files.readString(p);
-            Event[] arr = gson.fromJson(json, Event[].class);
-            List<Event> list = new ArrayList<>();
-            if (arr != null) Collections.addAll(list, arr);
-            return list;
+        String realPath = getServletContext().getRealPath("/mock/getEvents/search");
+        if (realPath != null) {
+            Path p = Path.of(realPath);
+            if (Files.exists(p)) {
+                String json = Files.readString(p);
+                Event[] arr = gson.fromJson(json, Event[].class);
+                List<Event> list = new ArrayList<>();
+                if (arr != null) Collections.addAll(list, arr);
+                return list;
+            }
         }
 
         // Fallback to a tiny built-in list if the mock file is missing.

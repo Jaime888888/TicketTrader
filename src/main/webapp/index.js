@@ -15,8 +15,14 @@ function fmtDate(iso) {
 
 async function safeJson(res) {
   const text = await res.text();
-  try { return JSON.parse(text); }
-  catch { return { success: false, message: "Server did not return JSON", raw: text }; }
+  try {
+    const parsed = JSON.parse(text);
+    parsed._status = res.status;
+    parsed._ok = res.ok;
+    return parsed;
+  } catch {
+    return { success: false, message: "Server did not return JSON", raw: text, _status: res.status, _ok: res.ok };
+  }
 }
 
 // ---------- favorites (NEW) ----------
@@ -24,7 +30,7 @@ async function addFavorite(eventId, label) {
   try {
     const userId = API.userId;
     if (!userId) { alert("Please log in to favorite events"); return; }
-    const r = await fetch("favorites", {
+    const r = await fetch(apiPath("favorites"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, eventId, eventName: label })
@@ -51,7 +57,7 @@ async function buyTickets(eventId, eventName, qtyInput, priceUsd) {
   try {
     const userId = API.userId;
     if (!userId) { alert("Please log in to trade"); return; }
-    const r = await fetch("trade", {
+    const r = await fetch(apiPath("trade"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, side: "BUY", eventId, eventName, qty, priceUsd })
@@ -82,14 +88,23 @@ async function search() {
   const url = params.toString() ? `search?${params.toString()}` : "search";
 
   try {
-    const r = await fetch(url, { method: "GET" });
+    const r = await fetch(apiPath(url), { method: "GET" });
     const j = await safeJson(r);
+    if (!r.ok) throw new Error(j.message || `Search failed (${r.status})`);
     if (!j.success) throw new Error(j.message || "Search failed");
     renderEvents(j.data || []);
   } catch (e) {
     console.error(e);
-    renderEvents([]);
-    alert(e.message || "Search failed");
+    try {
+      const mockResp = await fetch(apiPath("/mock/getEvents/search"));
+      const mockJson = await mockResp.json();
+      renderEvents(mockJson);
+      alert(e.message || "Search failed, showing mock data instead");
+    } catch (err) {
+      console.error(err);
+      renderEvents([]);
+      alert(e.message || "Search failed");
+    }
   }
 }
 

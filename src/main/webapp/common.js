@@ -1,6 +1,9 @@
 // Common helpers available on all pages
 const API = {
-  base: '', // same origin
+  base: (function computeBase(){
+    const parts = window.location.pathname.split('/').filter(Boolean);
+    return parts.length ? '/' + parts[0] : '';
+  })(),
   proxyBase: localStorage.getItem('TT_PROXY_BASE') || 'https://example-proxy.invalid',
   get loggedIn(){ return !!(localStorage.getItem('TT_USER_ID') || localStorage.getItem('userId')); },
   get userId(){
@@ -23,6 +26,13 @@ const API = {
     renderNav();
   },
 };
+
+function apiPath(path){
+  const base = API.base || '';
+  const cleanBase = base.endsWith('/') ? base.slice(0, -1) : base;
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${cleanBase}${cleanPath}`;
+}
 function renderNav(){
   const nav = document.getElementById('nav'); if(!nav) return;
   if(API.loggedIn){

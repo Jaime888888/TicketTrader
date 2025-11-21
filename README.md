@@ -22,3 +22,6 @@
 - The database name in `JDBCConnector` (`tickettrader`) differs from the schema file (`ticket_trader`), and the connector currently lacks the `closeQuiet` helpers referenced throughout the servlets.【F:src/main/java/db/JDBCConnector.java†L7-L18】【F:src/main/java/api/RegisterServlet.java†L67-L74】【F:setup.sql†L2-L89】
 - `RegisterServlet` only accepts `username` and `password`, while the schema requires an `email` column and stores passwords in `password_hash`, creating a mismatch with both the schema and the front-end signup payload that includes `email`.【F:src/main/java/api/RegisterServlet.java†L21-L64】【F:src/main/webapp/login.js†L32-L42】【F:setup.sql†L8-L17】
 - `LoginServlet` queries `password_hash` and performs a plain-text comparison, so password handling and field naming should be aligned with the schema before deploying.【F:src/main/java/api/LoginServlet.java†L49-L69】【F:setup.sql†L8-L17】
+
+## Deployment tips
+- The repository no longer ships compiled servlet `.class` files. Make sure your IDE or build step copies the compiled classes into the exploded webapp (e.g., `target` or `build`) before deploying to Tomcat so endpoints load correctly.【F:.gitignore†L1-L14】
