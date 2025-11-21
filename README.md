@@ -12,7 +12,7 @@
 
 ## Key behaviors
 - **Search & Buy**: `index.js` now reads the bundled mock search JSON at `/mock/getEvents/search.json` (no backend call needed), renders results, and lets you buy tickets directly; buys post to `/trade` using the demo user id.
-- **Wallet**: `wallet.js` calls `/wallet` for cash and positions, and BUY/SELL buttons post to `/trade` to update holdings and balances.
+- **Wallet**: `wallet.js` now reads bundled mock data from `/mock/wallet/cash.json` and `/mock/wallet/positions.json` so the page works without a servlet, and BUY/SELL buttons update the in-browser state to reflect trades immediately.
 - **Demo bootstrapping**: `common.js` seeds localStorage with the demo user id; `DemoUser.ensure` guarantees the database has the corresponding user and wallet before trades or wallet reads.
 
 ## Deployment tips
