@@ -19,25 +19,9 @@ CREATE TABLE users (
 
 CREATE TABLE wallet (
   user_id    BIGINT UNSIGNED NOT NULL,
-  cash_usd   DECIMAL(10,2)   NOT NULL DEFAULT 3000.00,  -- starting cash
+  cash_usd   DECIMAL(10,2)   NOT NULL DEFAULT 2000.00,  -- starting cash
   PRIMARY KEY (user_id),
   CONSTRAINT fk_wallet_user
-    FOREIGN KEY (user_id) REFERENCES users(id)
-    ON DELETE CASCADE
-) ENGINE=InnoDB;
-
-
-CREATE TABLE favorites (
-  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  user_id     BIGINT UNSIGNED NOT NULL,
-  event_id    VARCHAR(64)     NOT NULL,  -- Ticketmaster event id
-  event_name  VARCHAR(255)    NULL,      -- optional cached label
-  event_image TEXT            NULL,      -- optional cached image url
-  created_at  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  UNIQUE KEY uq_fav_user_event (user_id, event_id),
-  KEY ix_fav_user (user_id),
-  CONSTRAINT fk_fav_user
     FOREIGN KEY (user_id) REFERENCES users(id)
     ON DELETE CASCADE
 ) ENGINE=InnoDB;
@@ -84,6 +68,6 @@ CREATE TRIGGER trg_users_after_insert
 AFTER INSERT ON users
 FOR EACH ROW
 BEGIN
-  INSERT INTO wallet(user_id, cash_usd) VALUES (NEW.id, 3000.00);
+  INSERT INTO wallet(user_id, cash_usd) VALUES (NEW.id, 2000.00);
 END//
 DELIMITER ;
