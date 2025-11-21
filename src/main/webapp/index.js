@@ -13,15 +13,29 @@ function fmtDate(iso) {
   }
 }
 
+async function safeJson(res) {
+  const text = await res.text();
+  try {
+    const parsed = JSON.parse(text);
+    parsed._status = res.status;
+    parsed._ok = res.ok;
+    return parsed;
+  } catch {
+    return { success: false, message: "Server did not return JSON", raw: text, _status: res.status, _ok: res.ok };
+  }
+}
+
 // ---------- favorites (NEW) ----------
 async function addFavorite(eventId, label) {
   try {
-    const r = await fetch("favorites", {
+    const userId = API.userId;
+    if (!userId) { alert("Please log in to favorite events"); return; }
+    const r = await fetch(apiPath("favorites"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ eventId, label })
+      body: JSON.stringify({ userId, eventId, eventName: label })
     });
-    const j = await r.json();
+    const j = await safeJson(r);
     if (j.success) {
       alert("Favorited");
     } else {
@@ -34,19 +48,21 @@ async function addFavorite(eventId, label) {
 }
 
 // ---------- buy ----------
-async function buyTickets(eventId, qtyInput) {
+async function buyTickets(eventId, eventName, qtyInput, priceUsd) {
   const qty = parseInt(qtyInput.value || "1", 10);
   if (!Number.isFinite(qty) || qty <= 0) {
     alert("Quantity must be a positive number");
     return;
   }
   try {
-    const r = await fetch("trade", {
+    const userId = API.userId;
+    if (!userId) { alert("Please log in to trade"); return; }
+    const r = await fetch(apiPath("trade"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ eventId, qty })
+      body: JSON.stringify({ userId, side: "BUY", eventId, eventName, qty, priceUsd })
     });
-    const j = await r.json();
+    const j = await safeJson(r);
     if (j.success) {
       alert("Purchase complete");
     } else {
@@ -60,8 +76,10 @@ async function buyTickets(eventId, qtyInput) {
 
 // ---------- search / list ----------
 async function search() {
-  const keyword = $("#keyword").value.trim();
-  const city = $("#city").value.trim();
+  const kwInput = $("#keyword") || $("#kw") || $("#searchKeyword");
+  const cityInput = $("#city") || $("#searchCity");
+  const keyword = kwInput ? kwInput.value.trim() : "";
+  const city = cityInput ? cityInput.value.trim() : "";
 
   const params = new URLSearchParams();
   if (keyword) params.set("keyword", keyword);
@@ -70,19 +88,28 @@ async function search() {
   const url = params.toString() ? `search?${params.toString()}` : "search";
 
   try {
-    const r = await fetch(url, { method: "GET" });
-    const j = await r.json();
+    const r = await fetch(apiPath(url), { method: "GET" });
+    const j = await safeJson(r);
+    if (!r.ok) throw new Error(j.message || `Search failed (${r.status})`);
     if (!j.success) throw new Error(j.message || "Search failed");
     renderEvents(j.data || []);
   } catch (e) {
     console.error(e);
-    renderEvents([]);
-    alert(e.message || "Search failed");
+    try {
+      const mockResp = await fetch(apiPath("/mock/getEvents/search"));
+      const mockJson = await mockResp.json();
+      renderEvents(mockJson);
+      alert(e.message || "Search failed, showing mock data instead");
+    } catch (err) {
+      console.error(err);
+      renderEvents([]);
+      alert(e.message || "Search failed");
+    }
   }
 }
 
 function renderEvents(events) {
-  const tbody = $("#results-body");
+  const tbody = $("#results-body") || $("#results tbody");
   if (!tbody) return;
 
   tbody.innerHTML = "";
@@ -97,10 +124,11 @@ function renderEvents(events) {
     const name = e.name ?? e.title ?? "Event";
     const date = fmtDate(e.date ?? e.localDate ?? e.startDate ?? "");
     const venue = e.venue ?? e.venueName ?? "";
-    const img = e.image ?? e.pic ?? "";
+    const img = e.image ?? e.pic ?? (Array.isArray(e.images) ? e.images[0] : "");
     const minP = e.minPrice ?? e.priceMin ?? e.low ?? "";
     const maxP = e.maxPrice ?? e.priceMax ?? e.high ?? "";
     const ticketUrl = e.url ?? e.ticketUrl ?? "#";
+    const priceUsd = Number(minP || maxP) || 0;
 
     const tr = document.createElement("tr");
 
@@ -148,7 +176,7 @@ function renderEvents(events) {
     const buyBtn = document.createElement("button");
     buyBtn.textContent = "BUY";
     buyBtn.style.marginLeft = "8px";
-    buyBtn.addEventListener("click", () => buyTickets(id, qty));
+    buyBtn.addEventListener("click", () => buyTickets(id, name, qty, priceUsd || 1));
     details.appendChild(qty);
     details.appendChild(buyBtn);
     tdEvent.appendChild(document.createElement("br"));
@@ -168,7 +196,7 @@ function renderEvents(events) {
 // ---------- wire up ----------
 document.addEventListener("DOMContentLoaded", () => {
   // basic form elements (falls back if missing)
-  if (!$("#keyword")) {
+  if (!$("#keyword") && !$("#kw")) {
     const kw = document.createElement("input");
     kw.id = "keyword";
     kw.style.display = "none";
@@ -180,13 +208,13 @@ document.addEventListener("DOMContentLoaded", () => {
     ct.style.display = "none";
     document.body.appendChild(ct);
   }
-  if (!$("#searchBtn")) {
+  if (!$("#searchBtn") && !$("#btnSearch")) {
     const sb = document.createElement("button");
     sb.id = "searchBtn";
     sb.style.display = "none";
     document.body.appendChild(sb);
   }
-  if (!$("#results-body")) {
+  if (!$("#results-body") && !$("#results tbody")) {
     // create a table if the html didn't have one
     const tbl = document.createElement("table");
     tbl.style.width = "100%";
@@ -199,7 +227,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(tbl);
   }
 
-  const btn = $("#searchBtn") || $("#search") || $("#doSearch");
+  const btn = $("#searchBtn") || $("#btnSearch") || $("#search") || $("#doSearch");
   if (btn) btn.addEventListener("click", search);
 
   // initial load
