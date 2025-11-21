@@ -1,8 +1,11 @@
 // Common helpers available on all pages
 const API = {
   base: (function computeBase(){
-    const parts = window.location.pathname.split('/').filter(Boolean);
-    return parts.length ? '/' + parts[0] : '';
+    // Derive the servlet context root from the first path segment, ignoring the filename
+    const path = window.location.pathname || '';
+    const dir  = path.substring(0, Math.max(0, path.lastIndexOf('/')));
+    const segments = dir.split('/').filter(Boolean);
+    return segments.length ? '/' + segments[0] : '';
   })(),
   proxyBase: localStorage.getItem('TT_PROXY_BASE') || 'https://example-proxy.invalid',
   get loggedIn(){ return !!(localStorage.getItem('TT_USER_ID') || localStorage.getItem('userId')); },
