@@ -1,0 +1,5 @@
+{
+  "event": { "name": "Taylor Swift | The Eras Tour", "venue": "SoFi Stadium", "url": "https://www.ticketmaster.com/" },
+  "date":  { "localDate": "2025-12-20", "localTime": "19:30:00" },
+  "price": { "min": 120.0, "max": 450.0 }
+}
