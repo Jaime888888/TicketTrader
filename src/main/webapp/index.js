@@ -113,31 +113,20 @@
     const keyword = kwInput ? kwInput.value.trim() : "";
     const city = cityInput ? cityInput.value.trim() : "";
 
-    const params = new URLSearchParams();
-    if (keyword) params.set("keyword", keyword);
-    if (city) params.set("city", city);
-
-    const url = params.toString() ? `search?${params.toString()}` : "search";
+    // Always read from the bundled mock search JSON to avoid servlet routing issues
+    // or missing backend endpoints in the simplified demo.
+    const searchUrl = apiPath("/mock/getEvents/search");
 
     try {
-      const searchUrl = apiPath(url);
       const r = await fetch(searchUrl, { method: "GET" });
       const j = await safeJson(r, searchUrl);
       if (!r.ok) throw new Error(j.message || `Search failed (${r.status})`);
-      if (!j.success) throw new Error(j.message || "Search failed");
-      renderEvents(j.data || []);
+      const results = Array.isArray(j) ? j : Array.isArray(j.data) ? j.data : [];
+      renderEvents(results);
     } catch (e) {
       console.error(e);
-      try {
-        const mockResp = await fetch(apiPath("/mock/getEvents/search"));
-        const mockJson = await mockResp.json();
-        renderEvents(mockJson);
-        alert(e.message || "Search failed, showing mock data instead");
-      } catch (err) {
-        console.error(err);
-        renderEvents([]);
-        alert(e.message || "Search failed");
-      }
+      renderEvents([]);
+      alert(e.message || "Search failed");
     }
   }
 
