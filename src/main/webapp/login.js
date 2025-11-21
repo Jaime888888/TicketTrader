@@ -21,8 +21,7 @@
 
     const j = await safeJson(r);
     if (j.success) {
-      localStorage.setItem('TT_USER_ID', j.data.userId);
-      localStorage.setItem('TT_USERNAME', username);
+      API.setLogin(j.data.userId, username);
       goHome();
     } else {
       alert(j.message || 'Login failed');
@@ -43,8 +42,7 @@
 
     const j = await safeJson(r);
     if (j.success) {
-      localStorage.setItem('TT_USER_ID', j.data.userId);
-      localStorage.setItem('TT_USERNAME', username);
+      API.setLogin(j.data.userId, username);
       goHome();
     } else {
       alert(j.message || 'Signup failed');

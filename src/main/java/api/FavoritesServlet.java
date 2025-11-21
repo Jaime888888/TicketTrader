@@ -31,7 +31,7 @@ public class FavoritesServlet extends HttpServlet {
             List<Map<String,Object>> list = new ArrayList<>();
             while (rs.next()) {
                 Map<String,Object> m = new LinkedHashMap<>();
-                m.put("eventId", rs.getLong(1));
+                m.put("eventId", rs.getString(1));
                 m.put("eventName", rs.getString(2));
                 list.add(m);
             }
@@ -51,7 +51,7 @@ public class FavoritesServlet extends HttpServlet {
         try (BufferedReader br = req.getReader()) {
             JsonObject b = gson.fromJson(br, JsonObject.class);
             long userId = b.get("userId").getAsLong();
-            long eventId = b.get("eventId").getAsLong();
+            String eventId = b.get("eventId").getAsString();
             String eventName = b.get("eventName").getAsString();
 
             Connection c = null; PreparedStatement ps = null;
@@ -61,7 +61,7 @@ public class FavoritesServlet extends HttpServlet {
                     "INSERT INTO favorites(user_id, event_id, event_name) VALUES(?,?,?) " +
                     "ON DUPLICATE KEY UPDATE event_name=VALUES(event_name)");
                 ps.setLong(1, userId);
-                ps.setLong(2, eventId);
+                ps.setString(2, eventId);
                 ps.setString(3, eventName);
                 ps.executeUpdate();
                 write(resp, new JsonResp(true, "Favorited"));
@@ -86,7 +86,7 @@ public class FavoritesServlet extends HttpServlet {
             c = JDBCConnector.get();
             ps = c.prepareStatement("DELETE FROM favorites WHERE user_id=? AND event_id=?");
             ps.setLong(1, Long.parseLong(userId));
-            ps.setLong(2, Long.parseLong(eventId));
+            ps.setString(2, eventId);
             ps.executeUpdate();
             write(resp, new JsonResp(true, "Removed"));
         } catch (Exception e) {
