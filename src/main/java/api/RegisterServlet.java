@@ -20,30 +20,38 @@ public class RegisterServlet extends HttpServlet {
 
         try (BufferedReader br = req.getReader()) {
             JsonObject body = gson.fromJson(br, JsonObject.class);
-            String username = body.get("username").getAsString();
+            String username = body.get("username").getAsString().trim();
+            String email    = body.get("email").getAsString().trim();
             String password = body.get("password").getAsString();
 
+            if (username.isEmpty() || email.isEmpty() || password.isEmpty()) {
+                write(resp, JsonResp.error("All fields are required"));
+                return;
+            }
+
             Connection c = null;
-            PreparedStatement check = null, insUser = null, insWallet = null;
+            PreparedStatement check = null, insUser = null;
             ResultSet rs = null;
             try {
                 c = JDBCConnector.get();
                 c.setAutoCommit(false);
 
-                check = c.prepareStatement("SELECT id FROM users WHERE username=?");
+                check = c.prepareStatement("SELECT id FROM users WHERE username=? OR email=?");
                 check.setString(1, username);
+                check.setString(2, email);
                 rs = check.executeQuery();
                 if (rs.next()) {
-                    write(resp, new JsonResp(false, "Username already exists"));
+                    write(resp, JsonResp.error("Username or email already exists"));
                     c.rollback();
                     return;
                 }
 
                 insUser = c.prepareStatement(
-                    "INSERT INTO users(username, password) VALUES(?, ?)",
+                    "INSERT INTO users(username, email, password_hash) VALUES(?, ?, ?)",
                     Statement.RETURN_GENERATED_KEYS);
                 insUser.setString(1, username);
-                insUser.setString(2, password);
+                insUser.setString(2, email);
+                insUser.setString(3, password);
                 insUser.executeUpdate();
 
                 long uid;
@@ -52,28 +60,21 @@ public class RegisterServlet extends HttpServlet {
                     uid = gk.getLong(1);
                 }
 
-                // If your trigger already creates wallet, this is harmless (ON DUP KEY ignored)
-                insWallet = c.prepareStatement(
-                    "INSERT INTO wallet(user_id, cash_usd) VALUES(?, 0.00) " +
-                    "ON DUPLICATE KEY UPDATE cash_usd=cash_usd");
-                insWallet.setLong(1, uid);
-                insWallet.executeUpdate();
-
+                // Wallet is created by trigger; returning the new user id for the frontend
                 c.commit();
-                write(resp, new JsonResp(true, "OK"));
+                write(resp, new JsonResp(true, "OK", java.util.Map.of("userId", uid)));
             } catch (Exception e) {
                 if (c != null) try { c.rollback(); } catch (Exception ignore) {}
-                write(resp, new JsonResp(false, "DB error: " + e.getMessage()));
+                write(resp, JsonResp.error("DB error: " + e.getMessage()));
             } finally {
                 JDBCConnector.closeQuiet(rs);
                 JDBCConnector.closeQuiet(check);
                 JDBCConnector.closeQuiet(insUser);
-                JDBCConnector.closeQuiet(insWallet);
                 if (c != null) try { c.setAutoCommit(true); } catch (Exception ignore) {}
                 JDBCConnector.closeQuiet(c);
             }
         } catch (Exception e) {
-            write(resp, new JsonResp(false, "Server error: " + e.getMessage()));
+            write(resp, JsonResp.error("Server error: " + e.getMessage()));
         }
     }
 

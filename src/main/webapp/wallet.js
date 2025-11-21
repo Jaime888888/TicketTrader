@@ -1,7 +1,7 @@
 /* global API, renderNav */
 document.addEventListener('DOMContentLoaded', async () => {
   renderNav();
-  if (!API.loggedIn()) { location.href = 'login.html'; return; }
+  if (!API.loggedIn) { location.href = 'login.html'; return; }
 
   const cash = document.getElementById('cash');
   const total = document.getElementById('total');
