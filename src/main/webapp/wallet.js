@@ -1,23 +1,23 @@
 /* global API, renderNav */
 document.addEventListener('DOMContentLoaded', async () => {
   renderNav();
-  if (!API.loggedIn()) { location.href = 'login.html'; return; }
 
   const cash = document.getElementById('cash');
   const total = document.getElementById('total');
   const tbody = document.querySelector('tbody');
+  const p = (path) => (typeof apiPath === 'function' ? apiPath(path) : path);
 
   async function load() {
     try {
       // --- Cash ---
-      const r1 = await fetch(`wallet?type=cash&userId=${API.userId}`);
+      const r1 = await fetch(p(`wallet?type=cash&userId=${API.userId}`));
       const j1 = await r1.json();
       if (!j1.success) throw new Error(j1.message || 'Cash fetch failed');
       const balance = Number(j1.data?.cashUsd ?? 0);
       cash.textContent = 'Cash: $' + balance.toFixed(2);
 
       // --- Positions ---
-      const r2 = await fetch(`wallet?type=positions&userId=${API.userId}`);
+      const r2 = await fetch(p(`wallet?type=positions&userId=${API.userId}`));
       const j2 = await r2.json();
       if (!j2.success) throw new Error(j2.message || 'Positions fetch failed');
 
@@ -31,6 +31,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const tr = document.createElement('tr');
         const qid = (Math.random().toString(36).slice(2));
+        const minPrice = Number(p.minPriceUsd || p.maxPriceUsd || 0);
+        const maxPrice = Number(p.maxPriceUsd || p.minPriceUsd || 0);
         tr.innerHTML = `
           <td>${p.eventName || p.eventId}</td>
           <td>${p.qty}</td>
@@ -46,10 +48,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         tr.querySelector('.buy').onclick = async () => {
           const q = Number(document.getElementById(qid).value || 0);
-          const r = await fetch('trade', {
+          const r = await fetch(p('trade'), {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ userId: API.userId, posId: p.id, qty: q })
+            body: JSON.stringify({
+              userId: API.userId,
+              side: 'BUY',
+              eventId: p.eventId,
+              eventName: p.eventName,
+              qty: q,
+              priceUsd: minPrice
+            })
           });
           const j = await r.json();
           alert(j.message || 'Done');
@@ -58,10 +67,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         tr.querySelector('.sell').onclick = async () => {
           const q = Number(document.getElementById(qid).value || 0);
-          const r = await fetch('trade', {
+          const r = await fetch(p('trade'), {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ userId: API.userId, posId: p.id, qty: -q })
+            body: JSON.stringify({
+              userId: API.userId,
+              side: 'SELL',
+              eventId: p.eventId,
+              eventName: p.eventName,
+              qty: q,
+              priceUsd: maxPrice
+            })
           });
           const j = await r.json();
           alert(j.message || 'Done');
