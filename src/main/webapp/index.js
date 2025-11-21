@@ -4,13 +4,14 @@
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-const baseParts = typeof window !== "undefined" ? window.location.pathname.split("/").filter(Boolean) : [];
+const hasWindow = typeof window !== "undefined";
+const baseParts = hasWindow ? window.location.pathname.split("/").filter(Boolean) : [];
 const fallbackBase = baseParts.length ? `/${baseParts[0]}` : "";
 
 // Some servers may fail to load common.js; provide local fallbacks so the page
 // still works instead of throwing ReferenceError in that scenario.
 const API =
-  typeof window !== "undefined" && window.API
+  hasWindow && window.API
     ? window.API
     : {
         base: fallbackBase,
@@ -28,14 +29,20 @@ const API =
         logout() {},
       };
 
-const apiPath =
-  typeof window !== "undefined" && typeof window.apiPath === "function"
-    ? window.apiPath
-    : (path) => {
-        const cleanBase = fallbackBase.endsWith("/") ? fallbackBase.slice(0, -1) : fallbackBase;
-        const cleanPath = path.startsWith("/") ? path : `/${path}`;
-        return `${cleanBase}${cleanPath}`;
-      };
+// Keep the apiPath helper in scope even if common.js fails to load or loads later.
+const deriveApiPath = (path) => {
+  const cleanBase = fallbackBase.endsWith("/") ? fallbackBase.slice(0, -1) : fallbackBase;
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  return `${cleanBase}${cleanPath}`;
+};
+
+const apiPath = hasWindow && typeof window.apiPath === "function" ? window.apiPath : deriveApiPath;
+if (hasWindow && !window.apiPath) {
+  window.apiPath = apiPath;
+}
+if (hasWindow && !window.API) {
+  window.API = API;
+}
 
 function fmtDate(iso) {
   try {
