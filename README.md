@@ -11,7 +11,7 @@
 - **Database schema** in `setup.sql`, which creates `users`, `wallet`, and `positions` tables and seeds wallet balances with $2,000.
 
 ## Key behaviors
-- **Search & Buy**: `index.js` fetches `/search`, renders results, and lets you buy tickets directly; buys post to `/trade` using the demo user id.
+- **Search & Buy**: `index.js` now reads the bundled mock search JSON at `/mock/getEvents/search.json` (no backend call needed), renders results, and lets you buy tickets directly; buys post to `/trade` using the demo user id.
 - **Wallet**: `wallet.js` calls `/wallet` for cash and positions, and BUY/SELL buttons post to `/trade` to update holdings and balances.
 - **Demo bootstrapping**: `common.js` seeds localStorage with the demo user id; `DemoUser.ensure` guarantees the database has the corresponding user and wallet before trades or wallet reads.
 
