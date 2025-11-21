@@ -114,8 +114,10 @@
     const city = cityInput ? cityInput.value.trim() : "";
 
     // Always read from the bundled mock search JSON to avoid servlet routing issues
-    // or missing backend endpoints in the simplified demo.
-    const searchUrl = apiPath("/mock/getEvents/search");
+    // or missing backend endpoints in the simplified demo. Use a URL that works
+    // whether the app is deployed at "/" or a context root like "/TicketTrader".
+    const base = (API.base || "").replace(/\/$/, "");
+    const searchUrl = `${base}/mock/getEvents/search.json`;
 
     try {
       const r = await fetch(searchUrl, { method: "GET" });
