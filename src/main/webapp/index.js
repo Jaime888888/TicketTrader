@@ -56,7 +56,7 @@
     }
   }
 
-  async function safeJson(res) {
+  async function safeJson(res, urlHint = "") {
     const text = await res.text();
     try {
       const parsed = JSON.parse(text);
@@ -64,7 +64,15 @@
       parsed._ok = res.ok;
       return parsed;
     } catch {
-      return { success: false, message: "Server did not return JSON", raw: text, _status: res.status, _ok: res.ok };
+      const loc = urlHint || res.url || "request";
+      const snippet = text ? ` Response: ${text.slice(0, 160)}` : "";
+      return {
+        success: false,
+        message: `Expected JSON from ${loc} (status ${res.status}).${snippet}`,
+        raw: text,
+        _status: res.status,
+        _ok: res.ok,
+      };
     }
   }
 
@@ -80,12 +88,13 @@
       return;
     }
     try {
-      const r = await fetch(apiPath("trade"), {
+      const tradeUrl = apiPath("trade");
+      const r = await fetch(tradeUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: API.userId, side: "BUY", eventId, eventName, qty, priceUsd })
       });
-      const j = await safeJson(r);
+      const j = await safeJson(r, tradeUrl);
       if (j.success) {
         alert("Purchase complete");
       } else {
@@ -111,8 +120,9 @@
     const url = params.toString() ? `search?${params.toString()}` : "search";
 
     try {
-      const r = await fetch(apiPath(url), { method: "GET" });
-      const j = await safeJson(r);
+      const searchUrl = apiPath(url);
+      const r = await fetch(searchUrl, { method: "GET" });
+      const j = await safeJson(r, searchUrl);
       if (!r.ok) throw new Error(j.message || `Search failed (${r.status})`);
       if (!j.success) throw new Error(j.message || "Search failed");
       renderEvents(j.data || []);
