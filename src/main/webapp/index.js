@@ -68,28 +68,6 @@
     }
   }
 
-  // ---------- favorites (NEW) ----------
-  async function addFavorite(eventId, label) {
-    try {
-      const userId = API.userId;
-      if (!userId) { alert("Please log in to favorite events"); return; }
-      const r = await fetch(apiPath("favorites"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, eventId, eventName: label })
-      });
-      const j = await safeJson(r);
-      if (j.success) {
-        alert("Favorited");
-      } else {
-        alert(j.message || "Favorite failed");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Favorite failed");
-    }
-  }
-
   // ---------- buy ----------
   async function buyTickets(eventId, eventName, qtyInput, priceUsd) {
     const qty = parseInt(qtyInput.value || "1", 10);
@@ -97,13 +75,15 @@
       alert("Quantity must be a positive number");
       return;
     }
+    if (!priceUsd) {
+      alert("Missing price; cannot trade this event");
+      return;
+    }
     try {
-      const userId = API.userId;
-      if (!userId) { alert("Please log in to trade"); return; }
       const r = await fetch(apiPath("trade"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, side: "BUY", eventId, eventName, qty, priceUsd })
+        body: JSON.stringify({ userId: API.userId, side: "BUY", eventId, eventName, qty, priceUsd })
       });
       const j = await safeJson(r);
       if (j.success) {
@@ -195,16 +175,6 @@
       a.rel = "noopener noreferrer";
       a.textContent = name;
       tdEvent.appendChild(a);
-
-      // star (favorite)
-      const star = document.createElement("span");
-      star.title = "Add to favorites";
-      star.textContent = " ★";
-      star.style.cursor = "pointer";
-      // IMPORTANT: new call goes to addFavorite(eventId, name)
-      star.addEventListener("click", () => addFavorite(id, name));
-      tdEvent.appendChild(document.createTextNode(" "));
-      tdEvent.appendChild(star);
 
       // details / buy
       const details = document.createElement("div");

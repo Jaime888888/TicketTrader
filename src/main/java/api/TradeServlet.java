@@ -21,7 +21,19 @@ public class TradeServlet extends HttpServlet {
 
         try (BufferedReader br = req.getReader()) {
             JsonObject body = gson.fromJson(br, JsonObject.class);
-            long userId   = body.get("userId").getAsLong();
+            if (body == null) { write(resp, JsonResp.error("Missing request body")); return; }
+
+            long userId;
+            try {
+                userId = body.has("userId") && !body.get("userId").isJsonNull()
+                        ? body.get("userId").getAsLong()
+                        : DemoUser.ensure(BigDecimal.valueOf(2000));
+                DemoUser.ensure(BigDecimal.valueOf(2000));
+            } catch (Exception e) {
+                write(resp, JsonResp.error("Unable to prepare demo wallet: " + e.getMessage()));
+                return;
+            }
+
             String side   = body.get("side").getAsString(); // "BUY" or "SELL"
             String eventId  = body.get("eventId").getAsString();
             String eventName = body.has("eventName") && !body.get("eventName").isJsonNull()

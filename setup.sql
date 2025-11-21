@@ -19,7 +19,7 @@ CREATE TABLE users (
 
 CREATE TABLE wallet (
   user_id    BIGINT UNSIGNED NOT NULL,
-  cash_usd   DECIMAL(10,2)   NOT NULL DEFAULT 3000.00,  -- starting cash
+  cash_usd   DECIMAL(10,2)   NOT NULL DEFAULT 2000.00,  -- starting cash
   PRIMARY KEY (user_id),
   CONSTRAINT fk_wallet_user
     FOREIGN KEY (user_id) REFERENCES users(id)
@@ -84,6 +84,6 @@ CREATE TRIGGER trg_users_after_insert
 AFTER INSERT ON users
 FOR EACH ROW
 BEGIN
-  INSERT INTO wallet(user_id, cash_usd) VALUES (NEW.id, 3000.00);
+  INSERT INTO wallet(user_id, cash_usd) VALUES (NEW.id, 2000.00);
 END//
 DELIMITER ;
