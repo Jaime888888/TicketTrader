@@ -1,14 +1,14 @@
 # TicketTrader Quick Notes
 
 ## What changed for the demo flow
-- The app now runs without login or signup. A demo user is auto-provisioned in the browser and on the server so you land directly on the search page.
+- The app always runs as a demo user. There is no login or signup—just land on the search page and trade.
 - The demo wallet starts with **$2,000**. Wallet and trade endpoints auto-create this user/wallet if the DB is empty.
-- Navigation is simplified to just **Home** and **Wallet**.
+- Navigation is just **Home** and **Wallet**.
 
 ## Project layout
-- **Backend (Java servlets)** under `src/main/java`, including helpers like `JsonResp`, `DemoUser`, and `JDBCConnector` plus the core servlets (`SearchServlet`, `TradeServlet`, `WalletServlet`, etc.).
+- **Backend (Java servlets)** under `src/main/java`, including helpers like `JsonResp`, `DemoUser`, and `JDBCConnector` plus the core servlets (`SearchServlet`, `TradeServlet`, `WalletServlet`).
 - **Frontend assets** under `src/main/webapp` with page scripts such as `index.js` (search/buy), `wallet.js` (balances + trades), and the shared helper `common.js` that seeds the demo user and builds API paths.
-- **Database schema** in `setup.sql`, which creates `users`, `wallet`, `favorites`, and `positions` tables and seeds wallet balances with $2,000.
+- **Database schema** in `setup.sql`, which creates `users`, `wallet`, and `positions` tables and seeds wallet balances with $2,000.
 
 ## Key behaviors
 - **Search & Buy**: `index.js` fetches `/search`, renders results, and lets you buy tickets directly; buys post to `/trade` using the demo user id.

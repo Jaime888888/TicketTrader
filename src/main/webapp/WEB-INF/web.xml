@@ -7,34 +7,6 @@
 
     <display-name>TicketTrader</display-name>
 
-    <!-- Explicit servlet registrations to ensure endpoints resolve even if annotation scanning is disabled in some IDE setups -->
-    <servlet>
-        <servlet-name>LoginServlet</servlet-name>
-        <servlet-class>api.LoginServlet</servlet-class>
-    </servlet>
-    <servlet-mapping>
-        <servlet-name>LoginServlet</servlet-name>
-        <url-pattern>/login</url-pattern>
-    </servlet-mapping>
-
-    <servlet>
-        <servlet-name>RegisterServlet</servlet-name>
-        <servlet-class>api.RegisterServlet</servlet-class>
-    </servlet>
-    <servlet-mapping>
-        <servlet-name>RegisterServlet</servlet-name>
-        <url-pattern>/register</url-pattern>
-    </servlet-mapping>
-
-    <servlet>
-        <servlet-name>FavoritesServlet</servlet-name>
-        <servlet-class>api.FavoritesServlet</servlet-class>
-    </servlet>
-    <servlet-mapping>
-        <servlet-name>FavoritesServlet</servlet-name>
-        <url-pattern>/favorites</url-pattern>
-    </servlet-mapping>
-
     <servlet>
         <servlet-name>WalletServlet</servlet-name>
         <servlet-class>api.WalletServlet</servlet-class>
