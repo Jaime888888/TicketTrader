@@ -7,7 +7,33 @@
 
     <display-name>TicketTrader</display-name>
 
-    <!-- Servlets are mapped via @WebServlet annotations in code -->
+    <servlet>
+        <servlet-name>WalletServlet</servlet-name>
+        <servlet-class>api.WalletServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>WalletServlet</servlet-name>
+        <url-pattern>/wallet</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>TradeServlet</servlet-name>
+        <servlet-class>api.TradeServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>TradeServlet</servlet-name>
+        <url-pattern>/trade</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>SearchServlet</servlet-name>
+        <servlet-class>api.SearchServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>SearchServlet</servlet-name>
+        <url-pattern>/search</url-pattern>
+    </servlet-mapping>
+
     <welcome-file-list>
         <welcome-file>index.html</welcome-file>
     </welcome-file-list>
