@@ -4,6 +4,39 @@
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
+const baseParts = typeof window !== "undefined" ? window.location.pathname.split("/").filter(Boolean) : [];
+const fallbackBase = baseParts.length ? `/${baseParts[0]}` : "";
+
+// Some servers may fail to load common.js; provide local fallbacks so the page
+// still works instead of throwing ReferenceError in that scenario.
+const API =
+  typeof window !== "undefined" && window.API
+    ? window.API
+    : {
+        base: fallbackBase,
+        proxyBase: "",
+        get loggedIn() {
+          const raw = localStorage.getItem("TT_USER_ID") || localStorage.getItem("userId");
+          return !!raw;
+        },
+        get userId() {
+          const raw = localStorage.getItem("TT_USER_ID") || localStorage.getItem("userId") || "0";
+          const n = Number(raw);
+          return Number.isFinite(n) ? n : 0;
+        },
+        setLogin() {},
+        logout() {},
+      };
+
+const apiPath =
+  typeof window !== "undefined" && typeof window.apiPath === "function"
+    ? window.apiPath
+    : (path) => {
+        const cleanBase = fallbackBase.endsWith("/") ? fallbackBase.slice(0, -1) : fallbackBase;
+        const cleanPath = path.startsWith("/") ? path : `/${path}`;
+        return `${cleanBase}${cleanPath}`;
+      };
+
 function fmtDate(iso) {
   try {
     const d = new Date(iso);
