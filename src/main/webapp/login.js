@@ -1,6 +1,7 @@
 // login.js – strict, minimal, robust
 (() => {
   const goHome = () => location.href = 'index.html';
+  const pathFor = (p) => (typeof apiPath === 'function') ? apiPath(p) : p;
 
   const safeJson = async (r) => {
     const text = await r.text();
@@ -13,7 +14,7 @@
     const username = document.getElementById('luser').value.trim();
     const password = document.getElementById('lpass').value.trim();
 
-    const r = await fetch('login', {
+    const r = await fetch(pathFor('/login'), {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ username, password })
@@ -21,8 +22,7 @@
 
     const j = await safeJson(r);
     if (j.success) {
-      localStorage.setItem('TT_USER_ID', j.data.userId);
-      localStorage.setItem('TT_USERNAME', username);
+      API.setLogin(j.data.userId, username);
       goHome();
     } else {
       alert(j.message || 'Login failed');
@@ -35,7 +35,7 @@
     const email    = document.getElementById('semail').value.trim();
     const password = document.getElementById('spass').value.trim();
 
-    const r = await fetch('register', {
+    const r = await fetch(pathFor('/register'), {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ username, email, password })
@@ -43,8 +43,7 @@
 
     const j = await safeJson(r);
     if (j.success) {
-      localStorage.setItem('TT_USER_ID', j.data.userId);
-      localStorage.setItem('TT_USERNAME', username);
+      API.setLogin(j.data.userId, username);
       goHome();
     } else {
       alert(j.message || 'Signup failed');

@@ -7,6 +7,10 @@ public class JsonResp<T> {
 
     public JsonResp() {}
 
+    public JsonResp(boolean success, String message) {
+        this(success, message, null);
+    }
+
     public JsonResp(boolean success, String message, T data) {
         this.success = success;
         this.message  = message;
