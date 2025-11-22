@@ -26,14 +26,23 @@ public class RegisterServlet extends HttpServlet {
             throws ServletException, IOException {
         resp.setContentType("application/json;charset=UTF-8");
 
-        String body = readBody(req);
-        RegisterPayload payload = gson.fromJson(body, RegisterPayload.class);
-        if (payload == null || isBlank(payload.email) || isBlank(payload.username) || isBlank(payload.password)) {
-            write(resp, JsonResp.error("Email, username, and password are required"));
-            return;
-        }
-
         try {
+            String body = readBody(req);
+            RegisterPayload payload;
+            try {
+                payload = gson.fromJson(body, RegisterPayload.class);
+            } catch (Exception parseErr) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                write(resp, JsonResp.error("Invalid JSON payload: " + parseErr.getMessage()));
+                return;
+            }
+
+            if (payload == null || isBlank(payload.email) || isBlank(payload.username) || isBlank(payload.password)) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                write(resp, JsonResp.error("Email, username, and password are required"));
+                return;
+            }
+
             DemoUser.ensure(new BigDecimal("2000.00"));
             if (exists("SELECT 1 FROM users WHERE username = ?", payload.username)) {
                 write(resp, JsonResp.error("Username already taken"));
@@ -51,6 +60,8 @@ public class RegisterServlet extends HttpServlet {
             user.email = payload.email;
             write(resp, JsonResp.ok("Account created", user));
         } catch (Exception e) {
+            e.printStackTrace();
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             write(resp, JsonResp.error("Registration failed: " + e.getMessage()));
         }
     }

@@ -27,14 +27,23 @@ public class LoginServlet extends HttpServlet {
             throws ServletException, IOException {
         resp.setContentType("application/json;charset=UTF-8");
 
-        String body = readBody(req);
-        LoginPayload payload = gson.fromJson(body, LoginPayload.class);
-        if (payload == null || isBlank(payload.username) || isBlank(payload.password)) {
-            write(resp, JsonResp.error("Username/email and password are required"));
-            return;
-        }
-
         try {
+            String body = readBody(req);
+            LoginPayload payload;
+            try {
+                payload = gson.fromJson(body, LoginPayload.class);
+            } catch (Exception parseErr) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                write(resp, JsonResp.error("Invalid JSON payload: " + parseErr.getMessage()));
+                return;
+            }
+
+            if (payload == null || isBlank(payload.username) || isBlank(payload.password)) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                write(resp, JsonResp.error("Username/email and password are required"));
+                return;
+            }
+
             DemoUser.ensure(new BigDecimal("2000.00"));
             UserRecord user = findUser(payload.username);
             if (user == null) {
@@ -48,6 +57,8 @@ public class LoginServlet extends HttpServlet {
             }
             write(resp, JsonResp.ok("Login successful", new UserResponse(user)));
         } catch (Exception e) {
+            e.printStackTrace();
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             write(resp, JsonResp.error("Login failed: " + e.getMessage()));
         }
     }
