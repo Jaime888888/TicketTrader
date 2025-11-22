@@ -2,6 +2,12 @@
 document.addEventListener('DOMContentLoaded', async () => {
   renderNav();
 
+  if (!API.loggedIn) {
+    const main = document.querySelector('main') || document.body;
+    main.innerHTML = '<div class="muted">Please log in to view your wallet.</div>';
+    return;
+  }
+
   const cashEl = document.getElementById('cash');
   const totalEl = document.getElementById('total');
   const tbody = document.querySelector('tbody');

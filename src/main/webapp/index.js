@@ -20,11 +20,11 @@
       base: fallbackBase,
       proxyBase: "",
       get loggedIn() {
-        const raw = localStorage.getItem("TT_USER_ID") || localStorage.getItem("userId");
+        const raw = localStorage.getItem("TT_CURRENT_USER") || localStorage.getItem("TT_USER_ID") || localStorage.getItem("userId");
         return !!raw;
       },
       get userId() {
-        const raw = localStorage.getItem("TT_USER_ID") || localStorage.getItem("userId") || "0";
+        const raw = localStorage.getItem("TT_CURRENT_USER") || localStorage.getItem("TT_USER_ID") || localStorage.getItem("userId") || "0";
         const n = Number(raw);
         return Number.isFinite(n) ? n : 0;
       },
@@ -217,6 +217,11 @@
       star.addEventListener("click", (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
+        if (!API.loggedIn) {
+          alert("Please log in to save favorites");
+          window.location.href = "login.html";
+          return;
+        }
         Favorites.toggleFavorite && Favorites.toggleFavorite(favPayload);
         const nowFav = Favorites.isFavorite && Favorites.isFavorite(id);
         star.textContent = nowFav ? "★" : "☆";
@@ -244,7 +249,14 @@
       const buyBtn = document.createElement("button");
       buyBtn.textContent = "BUY";
       buyBtn.style.marginLeft = "8px";
-      buyBtn.addEventListener("click", () => buyTickets(id, name, qty, priceUsd || 1));
+      buyBtn.addEventListener("click", () => {
+        if (!API.loggedIn) {
+          alert("Please log in to trade");
+          window.location.href = "login.html";
+          return;
+        }
+        buyTickets(id, name, qty, priceUsd || 1);
+      });
       details.appendChild(qty);
       details.appendChild(buyBtn);
       tdEvent.appendChild(document.createElement("br"));
@@ -293,6 +305,17 @@
         <tbody id="results-body"></tbody>
       `;
       document.body.appendChild(tbl);
+    }
+
+    const authCallout = document.getElementById("authCallout");
+    if (authCallout) {
+      if (API.loggedIn) {
+        const user = window.AuthState && typeof window.AuthState.currentUser === "function" ? window.AuthState.currentUser() : null;
+        const label = user && (user.username || user.email) ? `${user.username || user.email}` : "logged in";
+        authCallout.textContent = `You are ${label}.`; 
+      } else {
+        authCallout.innerHTML = 'Want to save favorites or trade? <a href="login.html">Login / Sign Up</a>';
+      }
     }
 
     const btn = $("#searchBtn") || $("#btnSearch") || $("#search") || $("#doSearch");

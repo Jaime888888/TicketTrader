@@ -1,20 +1,47 @@
 // Common helpers available on all pages
 const DEMO_USER_ID = 1;
 const DEMO_USERNAME = 'demo-user';
-const WALLET_KEY = 'TT_WALLET_STATE_V1';
-const FAVORITES_KEY = 'TT_FAVORITES_V1';
+const WALLET_KEY_PREFIX = 'TT_WALLET_STATE_V1';
+const FAVORITES_KEY_PREFIX = 'TT_FAVORITES_V1';
+const USERS_KEY = 'TT_USERS_V1';
+const CURRENT_USER_KEY = 'TT_CURRENT_USER';
 const STARTING_CASH = 2000;
 
-function ensureDemoSession(){
-  if (!localStorage.getItem('TT_USER_ID')) {
-    localStorage.setItem('TT_USER_ID', DEMO_USER_ID);
-    localStorage.setItem('userId', DEMO_USER_ID);
-    localStorage.setItem('TT_USERNAME', DEMO_USERNAME);
-    localStorage.setItem('username', DEMO_USERNAME);
+function ensureDemoUser(){
+  const users = loadUsers();
+  const exists = users.some(u => u.id === DEMO_USER_ID || u.username === DEMO_USERNAME);
+  if (!exists) {
+    users.push({ id: DEMO_USER_ID, username: DEMO_USERNAME, email: 'demo@example.com', password: 'demo123' });
+    saveUsers(users);
   }
 }
 
-ensureDemoSession();
+function loadUsers(){
+  try {
+    const parsed = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveUsers(list){
+  try {
+    localStorage.setItem(USERS_KEY, JSON.stringify(list || []));
+  } catch {}
+}
+
+function nextUserId(){
+  const users = loadUsers();
+  return users.reduce((max, u) => Math.max(max, Number(u.id)||0), DEMO_USER_ID) + 1;
+}
+
+function currentUserId(){
+  ensureDemoUser();
+  const raw = localStorage.getItem(CURRENT_USER_KEY);
+  const num = Number(raw);
+  return Number.isFinite(num) ? num : null;
+}
 
 const API = {
   base: (function computeBase(){
@@ -25,14 +52,12 @@ const API = {
     return segments.length ? '/' + segments[0] : '';
   })(),
   proxyBase: localStorage.getItem('TT_PROXY_BASE') || 'https://example-proxy.invalid',
-  get loggedIn(){ return true; },
+  get loggedIn(){ return !!currentUserId(); },
   get userId(){
-    ensureDemoSession();
-    const raw = localStorage.getItem('TT_USER_ID') || localStorage.getItem('userId') || DEMO_USER_ID;
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : DEMO_USER_ID;
+    return currentUserId();
   },
   setLogin(uid, uname){
+    localStorage.setItem(CURRENT_USER_KEY, uid);
     localStorage.setItem('TT_USER_ID', uid);
     localStorage.setItem('userId', uid);
     localStorage.setItem('TT_USERNAME', uname||'');
@@ -40,10 +65,44 @@ const API = {
     renderNav();
   },
   logout(){
-    // No-op now that the app is always logged in as the demo user
+    localStorage.removeItem(CURRENT_USER_KEY);
+    localStorage.removeItem('TT_USER_ID');
+    localStorage.removeItem('userId');
     renderNav();
   },
 };
+
+function loginUser(username, password){
+  ensureDemoUser();
+  const users = loadUsers();
+  const match = users.find(u => (u.username === username || u.email === username) && u.password === password);
+  if (!match) return { success: false, message: 'Invalid credentials' };
+  API.setLogin(match.id, match.username);
+  loadWalletState();
+  return { success: true, user: match };
+}
+
+function registerUser({ email, username, password }){
+  ensureDemoUser();
+  const users = loadUsers();
+  if (users.some(u => u.username === username)) return { success: false, message: 'Username already taken' };
+  if (users.some(u => u.email === email)) return { success: false, message: 'Email already registered' };
+  const id = nextUserId();
+  const user = { id, email, username, password };
+  users.push(user);
+  saveUsers(users);
+  API.setLogin(id, username);
+  loadWalletState(true);
+  return { success: true, user };
+}
+
+function currentUser(){
+  const id = currentUserId();
+  if (!id) return null;
+  return loadUsers().find(u => Number(u.id) === Number(id)) || null;
+}
+
+window.AuthState = { loginUser, registerUser, currentUser };
 
 function walletStore(){
   try {
@@ -53,38 +112,44 @@ function walletStore(){
   }
 }
 
+function walletKey(uid = API.userId){
+  return `${WALLET_KEY_PREFIX}_${uid || 'guest'}`;
+}
+
 function defaultWalletState(){
   return { cashUsd: STARTING_CASH, positions: [] };
 }
 
 function loadWalletState(reset = false){
   const store = walletStore();
-  if (!store) return defaultWalletState();
+  const key = walletKey();
+  if (!store || !key) return defaultWalletState();
 
-  if (reset || !store.getItem(WALLET_KEY)) {
+  if (reset || !store.getItem(key)) {
     const fresh = defaultWalletState();
-    store.setItem(WALLET_KEY, JSON.stringify(fresh));
+    store.setItem(key, JSON.stringify(fresh));
     return fresh;
   }
 
   try {
-    const parsed = JSON.parse(store.getItem(WALLET_KEY));
+    const parsed = JSON.parse(store.getItem(key));
     if (typeof parsed !== 'object' || !parsed) throw new Error('invalid');
     parsed.cashUsd = Number(parsed.cashUsd ?? STARTING_CASH) || STARTING_CASH;
     parsed.positions = Array.isArray(parsed.positions) ? parsed.positions : [];
     return parsed;
   } catch {
     const fresh = defaultWalletState();
-    store.setItem(WALLET_KEY, JSON.stringify(fresh));
+    store.setItem(key, JSON.stringify(fresh));
     return fresh;
   }
 }
 
 function saveWalletState(state){
   const store = walletStore();
-  if (!store) return;
+  const key = walletKey();
+  if (!store || !key) return;
   try {
-    store.setItem(WALLET_KEY, JSON.stringify(state));
+    store.setItem(key, JSON.stringify(state));
   } catch (e) {
     console.warn('Unable to persist wallet state', e);
   }
@@ -100,6 +165,10 @@ if (typeof window !== 'undefined') {
 }
 
 function applyTradeToState({ side, eventId, eventName, qty, priceUsd }){
+  if (!API.loggedIn) {
+    return { success: false, message: 'Please log in to trade', state: defaultWalletState() };
+  }
+
   const state = loadWalletState();
   const cleanQty = Number(qty || 0);
   const cleanPrice = Number(priceUsd || 0);
@@ -153,11 +222,16 @@ function favoritesStore(){
   }
 }
 
+function favoritesKey(uid = API.userId){
+  return `${FAVORITES_KEY_PREFIX}_${uid || 'guest'}`;
+}
+
 function loadFavorites(){
+  if (!API.loggedIn) return [];
   const store = favoritesStore();
   if (!store) return [];
   try {
-    const parsed = JSON.parse(store.getItem(FAVORITES_KEY) || '[]');
+    const parsed = JSON.parse(store.getItem(favoritesKey()) || '[]');
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
@@ -165,17 +239,18 @@ function loadFavorites(){
 }
 
 function saveFavorites(favs){
+  if (!API.loggedIn) return;
   const store = favoritesStore();
   if (!store) return;
   try {
-    store.setItem(FAVORITES_KEY, JSON.stringify(favs || []));
+    store.setItem(favoritesKey(), JSON.stringify(favs || []));
   } catch (e) {
     console.warn('Unable to persist favorites', e);
   }
 }
 
 function isFavorite(eventId){
-  if (!eventId) return false;
+  if (!API.loggedIn || !eventId) return false;
   return loadFavorites().some(f => f.eventId === eventId);
 }
 
@@ -199,6 +274,7 @@ function removeFavorite(eventId){
 }
 
 function toggleFavorite(fav){
+  if (!API.loggedIn) return loadFavorites();
   if (!fav || !fav.eventId) return loadFavorites();
   return isFavorite(fav.eventId) ? removeFavorite(fav.eventId) : upsertFavorite(fav);
 }
@@ -213,6 +289,17 @@ function apiPath(path){
 }
 function renderNav(){
   const nav = document.getElementById('nav'); if(!nav) return;
-  nav.innerHTML = `<a href="index.html">Home</a><a href="favorites.html">Favorites</a><a href="wallet.html">Wallet</a>`;
+  const links = ["<a href=\"index.html\">Home</a>"];
+  if (API.loggedIn) {
+    links.push('<a href="favorites.html">Favorites</a>');
+    links.push('<a href="wallet.html">Wallet</a>');
+    links.push('<button id="logoutBtn" type="button">Logout</button>');
+  } else {
+    links.push('<a href="login.html">Login / Sign Up</a>');
+  }
+  nav.innerHTML = links.join('');
+  const btn = document.getElementById('logoutBtn');
+  if (btn) btn.onclick = () => { API.logout(); window.location.href = 'index.html'; };
 }
 document.addEventListener('DOMContentLoaded', renderNav);
+ensureDemoUser();

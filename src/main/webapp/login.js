@@ -1,4 +1,4 @@
-/* global renderNav, AuthState, API */
+/* global renderNav, API */
 
 document.addEventListener('DOMContentLoaded', () => {
   renderNav();
@@ -11,7 +11,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const user = document.getElementById('loginUser').value.trim();
     const pass = document.getElementById('loginPass').value;
     if (!user || !pass) return alert('Please enter username/email and password');
-    const res = AuthState.loginUser(user, pass);
+    const auth = window.AuthState;
+    if (!auth) return alert('Auth failed to load');
+    const res = auth.loginUser(user, pass);
     if (!res.success) return alert(res.message || 'Login failed');
     alert('Login successful');
     window.location.href = 'index.html';
@@ -25,7 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const confirm = document.getElementById('signupConfirm').value;
     if (!email || !username || !pass || !confirm) return alert('All fields are required');
     if (pass !== confirm) return alert('Passwords do not match');
-    const res = AuthState.registerUser({ email, username, password: pass });
+    const auth = window.AuthState;
+    if (!auth) return alert('Auth failed to load');
+    const res = auth.registerUser({ email, username, password: pass });
     if (!res.success) return alert(res.message || 'Signup failed');
     alert('Account created');
     window.location.href = 'index.html';
