@@ -1,6 +1,5 @@
 package api;
 
-import com.google.gson.Gson;
 import db.JDBCConnector;
 import jakarta.servlet.http.*;
 import jakarta.servlet.annotation.WebServlet;
@@ -12,8 +11,6 @@ import java.math.BigDecimal;
 
 @WebServlet(name = "WalletServlet", urlPatterns = {"/wallet"})
 public class WalletServlet extends HttpServlet {
-    private final Gson gson = new Gson();
-
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -22,7 +19,19 @@ public class WalletServlet extends HttpServlet {
         String type   = req.getParameter("type");    // "cash" or "positions"
         String userId = req.getParameter("userId");
 
-        if (type == null || userId == null) {
+        try {
+            if (userId == null || userId.isEmpty()) {
+                userId = String.valueOf(DemoUser.ensure(BigDecimal.valueOf(2000)));
+            } else {
+                // Make sure the wallet exists for the requested user
+                DemoUser.ensure(BigDecimal.valueOf(2000));
+            }
+        } catch (Exception e) {
+            write(resp, new JsonResp(false, "Unable to prepare demo wallet: " + e.getMessage()));
+            return;
+        }
+
+        if (type == null) {
             write(resp, new JsonResp(false, "Missing parameters"));
             return;
         }
@@ -76,6 +85,6 @@ public class WalletServlet extends HttpServlet {
     }
 
     private void write(HttpServletResponse resp, JsonResp jr) throws IOException {
-        try (PrintWriter out = resp.getWriter()) { out.write(gson.toJson(jr)); }
+        try (PrintWriter out = resp.getWriter()) { out.write(jr.toJson()); }
     }
 }
