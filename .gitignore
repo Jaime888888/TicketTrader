@@ -1,0 +1,16 @@
+# Build outputs
+build/
+target/
+*.class
+
+# IDE/local metadata
+.idea/
+*.iml
+.DS_Store
+
+# Eclipse-generated
+bin/
+.settings/
+
+# Application deployment copies
+src/main/webapp/WEB-INF/classes/
