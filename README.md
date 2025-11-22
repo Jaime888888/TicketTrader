@@ -11,7 +11,7 @@
 - **Database schema** in `setup.sql`, which creates `users`, `wallet`, and `positions` tables and seeds wallet balances with $2,000.
 
 ## Key behaviors
-- **Search, Favorite, & Buy**: `index.js` reads the bundled mock search JSON at `/mock/getEvents/search.json` (no backend call needed), renders results, lets you star events into Favorites, and books trades locally using a shared wallet state helper.
+- **Search, Favorite, & Buy**: `index.js` reads the bundled mock search JSON at `/mock/getEvents/search.json` (no backend call needed), renders results on load, filters them by keyword/city inputs, lets you star events into Favorites, and books trades locally using a shared wallet state helper.
 - **Favorites**: `favorites.js` renders the locally saved favorites list, lets you remove items, and provides a quick BUY action that flows into the same wallet state as Home/Wallet.
 - **Wallet**: `wallet.js` renders straight from the browser-stored wallet state (starting with $2,000 cash and no positions on a fresh session) and updates instantly when you BUY/SELL either here or from the Home page.
 - **Demo bootstrapping**: `common.js` seeds localStorage with the demo user id and now exposes a `WalletState` helper used by both pages.

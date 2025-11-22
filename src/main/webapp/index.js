@@ -119,24 +119,50 @@
   }
 
   // ---------- search / list ----------
+  // Always read from the bundled mock search JSON to avoid servlet routing issues
+  // or missing backend endpoints in the simplified demo. Use a URL that works
+  // whether the app is deployed at "/" or a context root like "/TicketTrader".
+  const searchUrl = `${(API.base || "").replace(/\/$/, "")}/mock/getEvents/search.json`;
+  let cachedEvents = null;
+
+  async function loadEvents() {
+    if (cachedEvents) return cachedEvents;
+    const res = await fetch(searchUrl, { method: "GET" });
+    const json = await safeJson(res, searchUrl);
+    if (!res.ok) throw new Error(json.message || `Search failed (${res.status})`);
+    cachedEvents = Array.isArray(json) ? json : Array.isArray(json.data) ? json.data : [];
+    return cachedEvents;
+  }
+
+  function filterEvents(list, keyword, city) {
+    const kw = (keyword || "").toLowerCase();
+    const ct = (city || "").toLowerCase();
+    return (list || []).filter((e) => {
+      const name = (e.name || e.title || "").toLowerCase();
+      const venue = (e.venue || e.venueName || "").toLowerCase();
+      const cityVal = (e.city || "").toLowerCase();
+      const kwOk = kw ? (name.includes(kw) || venue.includes(kw) || cityVal.includes(kw)) : true;
+      const cityOk = ct ? (cityVal.includes(ct) || venue.includes(ct)) : true;
+      return kwOk && cityOk;
+    });
+  }
+
   async function search() {
     const kwInput = $("#keyword") || $("#kw") || $("#searchKeyword");
     const cityInput = $("#city") || $("#searchCity");
     const keyword = kwInput ? kwInput.value.trim() : "";
     const city = cityInput ? cityInput.value.trim() : "";
 
-    // Always read from the bundled mock search JSON to avoid servlet routing issues
-    // or missing backend endpoints in the simplified demo. Use a URL that works
-    // whether the app is deployed at "/" or a context root like "/TicketTrader".
-    const base = (API.base || "").replace(/\/$/, "");
-    const searchUrl = `${base}/mock/getEvents/search.json`;
-
     try {
-      const r = await fetch(searchUrl, { method: "GET" });
-      const j = await safeJson(r, searchUrl);
-      if (!r.ok) throw new Error(j.message || `Search failed (${r.status})`);
-      const results = Array.isArray(j) ? j : Array.isArray(j.data) ? j.data : [];
-      renderEvents(results);
+      const events = await loadEvents();
+      const filtered = filterEvents(events, keyword, city);
+      renderEvents(filtered);
+      const hint = document.getElementById("hint");
+      if (hint) {
+        hint.textContent = keyword || city
+          ? `Showing ${filtered.length} of ${events.length} events filtered by keyword/location.`
+          : `Showing ${events.length} events from bundled mock data.`;
+      }
     } catch (e) {
       console.error(e);
       renderEvents([]);
