@@ -11,9 +11,9 @@
 - **Database schema** in `setup.sql`, which creates `users`, `wallet`, and `positions` tables and seeds wallet balances with $2,000.
 
 ## Key behaviors
-- **Search & Buy**: `index.js` now reads the bundled mock search JSON at `/mock/getEvents/search.json` (no backend call needed), renders results, and lets you buy tickets directly; buys post to `/trade` using the demo user id.
-- **Wallet**: `wallet.js` now reads bundled mock data from `/mock/wallet/cash.json` and `/mock/wallet/positions.json` so the page works without a servlet, and BUY/SELL buttons update the in-browser state to reflect trades immediately.
-- **Demo bootstrapping**: `common.js` seeds localStorage with the demo user id; `DemoUser.ensure` guarantees the database has the corresponding user and wallet before trades or wallet reads.
+- **Search & Buy**: `index.js` reads the bundled mock search JSON at `/mock/getEvents/search.json` (no backend call needed), renders results, and books trades locally using a shared wallet state helper.
+- **Wallet**: `wallet.js` renders straight from the browser-stored wallet state (starting with $2,000 cash and no positions on a fresh session) and updates instantly when you BUY/SELL either here or from the Home page.
+- **Demo bootstrapping**: `common.js` seeds localStorage with the demo user id and now exposes a `WalletState` helper used by both pages.
 
 ## Deployment tips
 - Ensure your build copies compiled classes into the exploded webapp (Tomcat needs `.class` files under `WEB-INF/classes`).

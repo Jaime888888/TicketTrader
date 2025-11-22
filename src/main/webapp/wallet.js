@@ -5,55 +5,69 @@ document.addEventListener('DOMContentLoaded', async () => {
   const cashEl = document.getElementById('cash');
   const totalEl = document.getElementById('total');
   const tbody = document.querySelector('tbody');
-  const p = (path) => (typeof apiPath === 'function' ? apiPath(path) : path);
-
-  const LOCAL_KEY = 'TT_WALLET_STATE_V1';
-  let state = {
-    cashUsd: 0,
-    positions: []
-  };
-
-  function loadFromLocal(){
-    try {
-      const raw = localStorage.getItem(LOCAL_KEY);
-      if (raw) state = JSON.parse(raw);
-    } catch (e) {
-      console.warn('Unable to read cached wallet state', e);
-    }
-  }
-
-  function saveToLocal(){
-    try {
-      localStorage.setItem(LOCAL_KEY, JSON.stringify(state));
-    } catch (e) {
-      console.warn('Unable to persist wallet state', e);
-    }
-  }
+  let state = (window.WalletState && window.WalletState.loadWalletState()) || { cashUsd: 2000, positions: [] };
 
   async function load() {
     try {
-      // Prefer cached values so the page renders even if fetch fails
-      loadFromLocal();
-
-      const cashResp = await fetch(p('/mock/wallet/cash.json'));
-      const cashJson = await cashResp.json();
-      const balance = Number(cashJson?.data?.cashUsd ?? state.cashUsd ?? 0);
-      state.cashUsd = balance;
-      cashEl.textContent = 'Cash: $' + balance.toFixed(2);
-
-      const posResp = await fetch(p('/mock/wallet/positions.json'));
-      const posJson = await posResp.json();
-      state.positions = Array.isArray(posJson) ? posJson : (posJson?.data || state.positions || []);
-
+      state = (window.WalletState && window.WalletState.loadWalletState()) || state;
       render();
-      saveToLocal();
     } catch (e) {
       console.error(e);
-      // Keep the page usable; show a friendly message instead of crashing on HTML 500 pages.
       tbody.innerHTML = '';
       totalEl.textContent = '';
       alert(e.message || 'Wallet error');
     }
+  }
+
+  function render(){
+    tbody.innerHTML = '';
+    let sum = 0;
+
+    for (const pos of (state.positions || [])) {
+      const avg = pos.totalCostUsd && pos.qty ? (Number(pos.totalCostUsd) / Number(pos.qty)).toFixed(2) : '0.00';
+      const mv  = (Number(pos.maxPriceUsd || 0) * Number(pos.qty || 0)).toFixed(2);
+      sum += Number(mv);
+
+      const tr = document.createElement('tr');
+      const qid = (Math.random().toString(36).slice(2));
+      const minPrice = Number(pos.minPriceUsd || pos.maxPriceUsd || 0);
+      const maxPrice = Number(pos.maxPriceUsd || pos.minPriceUsd || 0);
+      tr.innerHTML = `
+        <td>${pos.eventName || pos.eventId}</td>
+        <td>${pos.qty}</td>
+        <td>$${avg}</td>
+        <td>$${(pos.maxPriceUsd ?? 0)}</td>
+        <td>$${mv}</td>
+        <td>
+          <input id="${qid}" type="number" min="1" value="1" style="width:80px"/>
+          <button class="buy">BUY</button>
+          <button class="sell">SELL</button>
+        </td>
+      `;
+
+      tr.querySelector('.buy').onclick = () => {
+        const q = Number(document.getElementById(qid).value || 0);
+        const trade = (window.WalletState && window.WalletState.applyTradeToState) || (() => ({ success: false, message: 'No wallet handler' }));
+        const result = trade({ side: 'BUY', eventId: pos.eventId, eventName: pos.eventName, qty: q, priceUsd: minPrice });
+        if (!result.success) return alert(result.message || 'Trade failed');
+        state = result.state;
+        render();
+      };
+
+      tr.querySelector('.sell').onclick = () => {
+        const q = Number(document.getElementById(qid).value || 0);
+        const trade = (window.WalletState && window.WalletState.applyTradeToState) || (() => ({ success: false, message: 'No wallet handler' }));
+        const result = trade({ side: 'SELL', eventId: pos.eventId, eventName: pos.eventName, qty: q, priceUsd: maxPrice });
+        if (!result.success) return alert(result.message || 'Trade failed');
+        state = result.state;
+        render();
+      };
+
+      tbody.appendChild(tr);
+    }
+
+    totalEl.textContent = 'Total Account Value: $' + (sum + state.cashUsd).toFixed(2);
+    cashEl.textContent = 'Cash: $' + Number(state.cashUsd || 0).toFixed(2);
   }
 
   function render(){

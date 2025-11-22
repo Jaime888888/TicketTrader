@@ -83,26 +83,12 @@
       alert("Quantity must be a positive number");
       return;
     }
-    if (!priceUsd) {
-      alert("Missing price; cannot trade this event");
-      return;
-    }
-    try {
-      const tradeUrl = apiPath("trade");
-      const r = await fetch(tradeUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: API.userId, side: "BUY", eventId, eventName, qty, priceUsd })
-      });
-      const j = await safeJson(r, tradeUrl);
-      if (j.success) {
-        alert("Purchase complete");
-      } else {
-        alert(j.message || "Price fetch failed");
-      }
-    } catch (e) {
-      console.error(e);
-      alert("Price fetch failed");
+    const trade = (window.WalletState && window.WalletState.applyTradeToState) || (() => ({ success: false, message: "No wallet handler" }));
+    const result = trade({ side: "BUY", eventId, eventName, qty, priceUsd });
+    if (result.success) {
+      alert("Purchase complete");
+    } else {
+      alert(result.message || "Purchase failed");
     }
   }
 
@@ -149,10 +135,10 @@
       const date = fmtDate(e.date ?? e.localDate ?? e.startDate ?? "");
       const venue = e.venue ?? e.venueName ?? "";
       const img = e.image ?? e.pic ?? (Array.isArray(e.images) ? e.images[0] : "");
-      const minP = e.minPrice ?? e.priceMin ?? e.low ?? "";
-      const maxP = e.maxPrice ?? e.priceMax ?? e.high ?? "";
+      const minP = e.minPrice ?? e.priceMin ?? e.low ?? 100;
+      const maxP = e.maxPrice ?? e.priceMax ?? e.high ?? minP;
       const ticketUrl = e.url ?? e.ticketUrl ?? "#";
-      const priceUsd = Number(minP || maxP) || 0;
+      const priceUsd = Number(minP || maxP) || 100;
 
       const tr = document.createElement("tr");
 
