@@ -47,6 +47,32 @@
     window.apiPath = apiPath;
   }
 
+  // Favorites state (in-browser)
+  const Favorites = (() => {
+    if (hasWindow && window.FavoritesState) return window.FavoritesState;
+    const storeKey = 'TT_FAVORITES_V1';
+    const load = () => {
+      try { return JSON.parse(localStorage.getItem(storeKey) || '[]') || []; } catch { return []; }
+    };
+    const save = (list) => { try { localStorage.setItem(storeKey, JSON.stringify(list || [])); } catch {} };
+    return {
+      loadFavorites: load,
+      saveFavorites: save,
+      isFavorite: (id) => load().some(f => f.eventId === id),
+      toggleFavorite: (fav) => {
+        const list = load();
+        const idx = list.findIndex(f => f.eventId === (fav && fav.eventId));
+        if (idx >= 0) {
+          list.splice(idx, 1);
+        } else if (fav && fav.eventId) {
+          list.push(fav);
+        }
+        save(list);
+        return list;
+      },
+    };
+  })();
+
   function fmtDate(iso) {
     try {
       const d = new Date(iso);
@@ -139,6 +165,8 @@
       const maxP = e.maxPrice ?? e.priceMax ?? e.high ?? minP;
       const ticketUrl = e.url ?? e.ticketUrl ?? "#";
       const priceUsd = Number(minP || maxP) || 100;
+      const favPayload = { eventId: id, eventName: name, date, venue, minPriceUsd: minP, maxPriceUsd: maxP, image: img, url: ticketUrl };
+      const favbed = Favorites.isFavorite && Favorites.isFavorite(id);
 
       const tr = document.createElement("tr");
 
@@ -156,6 +184,20 @@
       }
 
       const tdEvent = document.createElement("td");
+      const star = document.createElement("button");
+      star.textContent = favbed ? "★" : "☆";
+      star.title = favbed ? "Remove from favorites" : "Add to favorites";
+      star.style.marginRight = "6px";
+      star.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        Favorites.toggleFavorite && Favorites.toggleFavorite(favPayload);
+        const nowFav = Favorites.isFavorite && Favorites.isFavorite(id);
+        star.textContent = nowFav ? "★" : "☆";
+        star.title = nowFav ? "Remove from favorites" : "Add to favorites";
+      });
+      tdEvent.appendChild(star);
+
       const a = document.createElement("a");
       a.href = ticketUrl;
       a.target = "_blank";
