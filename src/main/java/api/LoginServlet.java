@@ -1,83 +1,131 @@
 package api;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonObject;
+import db.JDBCConnector;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.ServletException;
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.sql.*;
+import java.io.PrintWriter;
+import java.math.BigDecimal;
+import java.security.MessageDigest;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.stream.Collectors;
 
-import db.JDBCConnector;   // <-- this is the only place you import it
-
-
+@WebServlet(name = "LoginServlet", urlPatterns = {"/login"})
 public class LoginServlet extends HttpServlet {
+    private final Gson gson = new Gson();
+
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-
         resp.setContentType("application/json;charset=UTF-8");
 
-        // Read JSON body
-        StringBuilder sb = new StringBuilder();
-        try (BufferedReader br = req.getReader()) {
-            String line;
-            while ((line = br.readLine()) != null) sb.append(line);
-        }
-
-        String username = null, password = null;
-        try {
-            com.google.gson.JsonObject body = com.google.gson.JsonParser.parseString(sb.toString()).getAsJsonObject();
-            username = body.get("username").getAsString().trim();
-            password = body.get("password").getAsString().trim();
-        } catch (Exception e) {
-            resp.setStatus(400);
-            try (PrintWriter out = resp.getWriter()) {
-                JsonObject j = new JsonObject();
-                j.addProperty("success", false);
-                j.addProperty("message", "Invalid JSON");
-                out.print(j.toString());
-            }
+        String body = readBody(req);
+        LoginPayload payload = gson.fromJson(body, LoginPayload.class);
+        if (payload == null || isBlank(payload.username) || isBlank(payload.password)) {
+            write(resp, JsonResp.error("Username/email and password are required"));
             return;
         }
 
-        JsonObject outJson = new JsonObject();
-
-        try (Connection conn = JDBCConnector.getConnection()) {
-            String sql = "SELECT id, password_hash FROM users WHERE username = ?";
-            try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                ps.setString(1, username);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (!rs.next()) {
-                        outJson.addProperty("success", false);
-                        outJson.addProperty("message", "User not found");
-                    } else {
-                        long userId = rs.getLong("id");
-                        String stored = rs.getString("password_hash");
-                        // Simple demo: plain match (your setup.sql stores plain text). Replace with hashing in real code.
-                        if (stored.equals(password)) {
-                            outJson.addProperty("success", true);
-                            JsonObject data = new JsonObject();
-                            data.addProperty("userId", userId);
-                            outJson.add("data", data);
-                        } else {
-                            outJson.addProperty("success", false);
-                            outJson.addProperty("message", "Wrong password");
-                        }
-                    }
-                }
+        try {
+            DemoUser.ensure(new BigDecimal("2000.00"));
+            UserRecord user = findUser(payload.username);
+            if (user == null) {
+                write(resp, JsonResp.error("User not found"));
+                return;
             }
+            String hashed = hash(payload.password);
+            if (!hashed.equals(user.passwordHash)) {
+                write(resp, JsonResp.error("Invalid credentials"));
+                return;
+            }
+            write(resp, JsonResp.ok("Login successful", new UserResponse(user)));
         } catch (Exception e) {
-            resp.setStatus(500);
-            outJson.addProperty("success", false);
-            outJson.addProperty("message", "Server error: " + e.getMessage());
+            write(resp, JsonResp.error("Login failed: " + e.getMessage()));
         }
+    }
 
+    private UserRecord findUser(String usernameOrEmail) throws SQLException {
+        Connection c = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        try {
+            c = JDBCConnector.get();
+            ps = c.prepareStatement(
+                    "SELECT id, username, email, password_hash FROM users WHERE username = ? OR email = ? LIMIT 1");
+            ps.setString(1, usernameOrEmail);
+            ps.setString(2, usernameOrEmail);
+            rs = ps.executeQuery();
+            if (rs.next()) {
+                UserRecord u = new UserRecord();
+                u.id = rs.getLong("id");
+                u.username = rs.getString("username");
+                u.email = rs.getString("email");
+                u.passwordHash = rs.getString("password_hash");
+                return u;
+            }
+            return null;
+        } finally {
+            JDBCConnector.closeQuiet(rs);
+            JDBCConnector.closeQuiet(ps);
+            JDBCConnector.closeQuiet(c);
+        }
+    }
+
+    private String readBody(HttpServletRequest req) throws IOException {
+        try (BufferedReader reader = req.getReader()) {
+            return reader.lines().collect(Collectors.joining());
+        }
+    }
+
+    private void write(HttpServletResponse resp, JsonResp<?> jr) throws IOException {
         try (PrintWriter out = resp.getWriter()) {
-            out.print(outJson.toString());
+            out.write(gson.toJson(jr));
+        }
+    }
+
+    private boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }
+
+    static String hash(String raw) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(raw.getBytes());
+            StringBuilder sb = new StringBuilder();
+            for (byte b : digest) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (Exception e) {
+            throw new RuntimeException("Unable to hash password", e);
+        }
+    }
+
+    private static class LoginPayload {
+        String username;
+        String password;
+    }
+
+    private static class UserRecord {
+        long id;
+        String username;
+        String email;
+        String passwordHash;
+    }
+
+    private static class UserResponse {
+        long id;
+        String username;
+        String email;
+
+        UserResponse(UserRecord r) {
+            this.id = r.id;
+            this.username = r.username;
+            this.email = r.email;
         }
     }
 }
