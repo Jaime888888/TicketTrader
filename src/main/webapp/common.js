@@ -48,11 +48,11 @@ function currentUserId(){
 
 const API = {
   base: (function computeBase(){
-    // Derive the servlet context root from the first path segment, ignoring the filename
+    // Derive the servlet context root from the directory path (full depth) so nested
+    // contexts like /TicketTrader/preview/login.html keep their full prefix.
     const path = window.location.pathname || '';
     const dir  = path.substring(0, Math.max(0, path.lastIndexOf('/')));
-    const segments = dir.split('/').filter(Boolean);
-    return segments.length ? '/' + segments[0] : '';
+    return dir || '';
   })(),
   proxyBase: localStorage.getItem('TT_PROXY_BASE') || 'https://example-proxy.invalid',
   get loggedIn(){ return !!currentUserId(); },
