@@ -75,6 +75,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (e) {
           alert(e.message || 'Failed to remove favorite');
         }
+        if (!result.success) return alert(result.message || 'Trade failed');
+        alert('Purchase complete');
       });
 
       actions.appendChild(qty);
