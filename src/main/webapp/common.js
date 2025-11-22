@@ -89,6 +89,15 @@ function saveWalletState(state){
   }
 }
 
+// Legacy helper name used by older wallet.js builds; keep it wired to the
+// current persistence routine so SELL/BUY buttons never throw when invoked.
+function saveToLocal(state){
+  return saveWalletState(state);
+}
+if (typeof window !== 'undefined') {
+  window.saveToLocal = saveToLocal;
+}
+
 function applyTradeToState({ side, eventId, eventName, qty, priceUsd }){
   const state = loadWalletState();
   const cleanQty = Number(qty || 0);
