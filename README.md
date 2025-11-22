@@ -18,5 +18,7 @@
 
 ## Deployment tips
 - Ensure your build copies compiled classes into the exploded webapp (Tomcat needs `.class` files under `WEB-INF/classes`).
-- Update `db/JDBCConnector.java` if your MySQL host, schema name, or credentials differ from the defaults.
-- Run the DDL in `setup.sql` to create the schema (it now defaults wallet balances to $2,000).
+- Update `db/JDBCConnector.java` if your MySQL host, schema name, or credentials differ from the defaults. It now auto-loads the
+  MySQL driver, creates the `ticket_trader` database if missing, and will lay down the core tables/triggers on first use so
+  fresh environments can start without running SQL manually.
+- You can still run the DDL in `setup.sql` yourself; if the schema already exists, the runtime bootstrap will no-op.
