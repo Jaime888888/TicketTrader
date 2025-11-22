@@ -3,11 +3,6 @@ document.addEventListener('DOMContentLoaded', () => {
   renderNav();
   const container = document.getElementById('favorites');
 
-  if (!API.loggedIn) {
-    container.innerHTML = '<div class="muted">Please log in to view favorites.</div>';
-    return;
-  }
-
   function render(){
     const favs = (FavoritesState && FavoritesState.loadFavorites && FavoritesState.loadFavorites()) || [];
     container.innerHTML = '';
