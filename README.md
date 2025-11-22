@@ -1,7 +1,7 @@
 # TicketTrader Quick Notes
 
 ## What changed for the demo flow
-- The login/sign-up page (`login.html`) now talks to MySQL-backed servlets (`/login` and `/register`). A demo account (`demo` / `demo123`) is seeded in the database for quick access.
+- The login/sign-up page (`login.html`) now talks to MySQL-backed servlets (`/login` and `/register`). A demo account (`demo` / `demo123`) is seeded in the database for quick access, and if MySQL is offline the servlets transparently fall back to an in-memory store so you can still register/login during local demos.
 - Each logged-in user still gets their own mock wallet and favorites stored locally. The starting balance remains **$2,000**.
 - Navigation adapts between **Home**, **Favorites**, **Wallet**, and **Login/Logout** depending on whether you're signed in.
 

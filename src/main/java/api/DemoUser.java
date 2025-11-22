@@ -67,6 +67,20 @@ public final class DemoUser {
         }
     }
 
+    /**
+     * Best-effort wrapper that logs and returns the demo id even when the
+     * database is unreachable so that the rest of the app can keep running in
+     * mock/in-memory mode.
+     */
+    public static long ensureSafe(BigDecimal startingCash) {
+        try {
+            return ensure(startingCash);
+        } catch (SQLException e) {
+            System.err.println("Demo user bootstrap skipped (DB offline): " + e.getMessage());
+            return ID;
+        }
+    }
+
     private static void ensureWallet(Connection c, BigDecimal startingCash) throws SQLException {
         PreparedStatement ps = null;
         try {

@@ -43,17 +43,17 @@ public class RegisterServlet extends HttpServlet {
                 return;
             }
 
-            DemoUser.ensure(new BigDecimal("2000.00"));
-            if (exists("SELECT 1 FROM users WHERE username = ?", payload.username)) {
+            DemoUser.ensureSafe(new BigDecimal("2000.00"));
+            if (existsSafe("SELECT 1 FROM users WHERE username = ?", payload.username, true)) {
                 write(resp, JsonResp.error("Username already taken"));
                 return;
             }
-            if (exists("SELECT 1 FROM users WHERE email = ?", payload.email)) {
+            if (existsSafe("SELECT 1 FROM users WHERE email = ?", payload.email, false)) {
                 write(resp, JsonResp.error("Email already registered"));
                 return;
             }
 
-            long id = insertUser(payload.username, payload.email, LoginServlet.hash(payload.password));
+            long id = insertUserSafe(payload.username, payload.email, LoginServlet.hash(payload.password));
             UserResponse user = new UserResponse();
             user.id = id;
             user.username = payload.username;
@@ -101,6 +101,24 @@ public class RegisterServlet extends HttpServlet {
             JDBCConnector.closeQuiet(rs);
             JDBCConnector.closeQuiet(ps);
             JDBCConnector.closeQuiet(c);
+        }
+    }
+
+    private boolean existsSafe(String sql, String value, boolean username) {
+        try {
+            return exists(sql, value);
+        } catch (SQLException e) {
+            System.err.println("DB offline, using in-memory auth for register: " + e.getMessage());
+            return username ? InMemoryAuthStore.usernameExists(value) : InMemoryAuthStore.emailExists(value);
+        }
+    }
+
+    private long insertUserSafe(String username, String email, String passwordHash) throws SQLException {
+        try {
+            return insertUser(username, email, passwordHash);
+        } catch (SQLException e) {
+            System.err.println("DB offline, adding user to in-memory auth store: " + e.getMessage());
+            return InMemoryAuthStore.insert(username, email, passwordHash).id;
         }
     }
 
