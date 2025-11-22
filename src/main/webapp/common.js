@@ -1,45 +1,47 @@
 // Common helpers available on all pages
-const DEMO_USER_ID = 1;
-const DEMO_USERNAME = 'demo-user';
 const WALLET_KEY_PREFIX = 'TT_WALLET_STATE_V1';
 const FAVORITES_KEY_PREFIX = 'TT_FAVORITES_V1';
-const USERS_KEY = 'TT_USERS_V1';
 const CURRENT_USER_KEY = 'TT_CURRENT_USER';
+const CURRENT_USER_OBJ_KEY = 'TT_CURRENT_USER_OBJ';
 const STARTING_CASH = 2000;
 
-function ensureDemoUser(){
-  const users = loadUsers();
-  const exists = users.some(u => u.id === DEMO_USER_ID || u.username === DEMO_USERNAME);
-  if (!exists) {
-    users.push({ id: DEMO_USER_ID, username: DEMO_USERNAME, email: 'demo@example.com', password: 'demo123' });
-    saveUsers(users);
-  }
+function setCurrentUser(user){
+  if (!user || !user.id) return;
+  try {
+    localStorage.setItem(CURRENT_USER_KEY, user.id);
+    localStorage.setItem('TT_USER_ID', user.id);
+    localStorage.setItem('userId', user.id);
+    localStorage.setItem('TT_USERNAME', user.username || '');
+    localStorage.setItem('username', user.username || '');
+    localStorage.setItem(CURRENT_USER_OBJ_KEY, JSON.stringify(user));
+  } catch (e) { console.warn('Unable to persist user', e); }
 }
 
-function loadUsers(){
+function clearCurrentUser(){
   try {
-    const parsed = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveUsers(list){
-  try {
-    localStorage.setItem(USERS_KEY, JSON.stringify(list || []));
+    localStorage.removeItem(CURRENT_USER_KEY);
+    localStorage.removeItem('TT_USER_ID');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('TT_USERNAME');
+    localStorage.removeItem('username');
+    localStorage.removeItem(CURRENT_USER_OBJ_KEY);
   } catch {}
 }
 
-function nextUserId(){
-  const users = loadUsers();
-  return users.reduce((max, u) => Math.max(max, Number(u.id)||0), DEMO_USER_ID) + 1;
+function currentUser(){
+  try {
+    const raw = localStorage.getItem(CURRENT_USER_OBJ_KEY);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    return obj && obj.id ? obj : null;
+  } catch {
+    return null;
+  }
 }
 
 function currentUserId(){
-  ensureDemoUser();
-  const raw = localStorage.getItem(CURRENT_USER_KEY);
-  const num = Number(raw);
+  const user = currentUser();
+  const num = user ? Number(user.id) : NaN;
   return Number.isFinite(num) ? num : null;
 }
 
@@ -56,50 +58,50 @@ const API = {
   get userId(){
     return currentUserId();
   },
-  setLogin(uid, uname){
-    localStorage.setItem(CURRENT_USER_KEY, uid);
-    localStorage.setItem('TT_USER_ID', uid);
-    localStorage.setItem('userId', uid);
-    localStorage.setItem('TT_USERNAME', uname||'');
-    localStorage.setItem('username', uname||'');
+  setLogin(user){
+    setCurrentUser(user);
     renderNav();
   },
   logout(){
-    localStorage.removeItem(CURRENT_USER_KEY);
-    localStorage.removeItem('TT_USER_ID');
-    localStorage.removeItem('userId');
+    clearCurrentUser();
     renderNav();
   },
 };
 
-function loginUser(username, password){
-  ensureDemoUser();
-  const users = loadUsers();
-  const match = users.find(u => (u.username === username || u.email === username) && u.password === password);
-  if (!match) return { success: false, message: 'Invalid credentials' };
-  API.setLogin(match.id, match.username);
-  loadWalletState();
-  return { success: true, user: match };
+async function authRequest(path, payload){
+  const url = apiPath(path);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    });
+    const text = await res.text();
+    const json = JSON.parse(text || '{}');
+    json._status = res.status;
+    json._ok = res.ok;
+    return json;
+  } catch (e) {
+    return { success: false, message: `Request to ${url} failed: ${e.message}` };
+  }
 }
 
-function registerUser({ email, username, password }){
-  ensureDemoUser();
-  const users = loadUsers();
-  if (users.some(u => u.username === username)) return { success: false, message: 'Username already taken' };
-  if (users.some(u => u.email === email)) return { success: false, message: 'Email already registered' };
-  const id = nextUserId();
-  const user = { id, email, username, password };
-  users.push(user);
-  saveUsers(users);
-  API.setLogin(id, username);
-  loadWalletState(true);
-  return { success: true, user };
+async function loginUser(username, password){
+  const res = await authRequest('/login', { username, password });
+  if (res.success && res.data) {
+    API.setLogin(res.data);
+    loadWalletState();
+  }
+  return res;
 }
 
-function currentUser(){
-  const id = currentUserId();
-  if (!id) return null;
-  return loadUsers().find(u => Number(u.id) === Number(id)) || null;
+async function registerUser({ email, username, password }){
+  const res = await authRequest('/register', { email, username, password });
+  if (res.success && res.data) {
+    API.setLogin(res.data);
+    loadWalletState(true);
+  }
+  return res;
 }
 
 window.AuthState = { loginUser, registerUser, currentUser };
@@ -302,4 +304,3 @@ function renderNav(){
   if (btn) btn.onclick = () => { API.logout(); window.location.href = 'index.html'; };
 }
 document.addEventListener('DOMContentLoaded', renderNav);
-ensureDemoUser();

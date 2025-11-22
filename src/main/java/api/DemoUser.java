@@ -9,7 +9,7 @@ public final class DemoUser {
     public static final long ID = 1L;
     private static final String USERNAME = "demo";
     private static final String EMAIL = "demo@example.com";
-    private static final String PASS_HASH = "demo"; // placeholder; not used for auth
+    private static final String PASS_HASH = LoginServlet.hash("demo123");
 
     private DemoUser() {}
 
@@ -24,10 +24,18 @@ public final class DemoUser {
         try {
             c = JDBCConnector.get();
 
-            ps = c.prepareStatement("SELECT id FROM users WHERE id=?");
+            ps = c.prepareStatement("SELECT id, password_hash FROM users WHERE id=?");
             ps.setLong(1, ID);
             rs = ps.executeQuery();
             if (rs.next()) {
+                String stored = rs.getString("password_hash");
+                if (!PASS_HASH.equals(stored)) {
+                    JDBCConnector.closeQuiet(ps);
+                    ps = c.prepareStatement("UPDATE users SET password_hash=? WHERE id=?");
+                    ps.setString(1, PASS_HASH);
+                    ps.setLong(2, ID);
+                    ps.executeUpdate();
+                }
                 ensureWallet(c, startingCash);
                 return ID;
             }
