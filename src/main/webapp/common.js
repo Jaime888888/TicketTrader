@@ -4,6 +4,7 @@ const FAVORITES_KEY_PREFIX = 'TT_FAVORITES_V1';
 const CURRENT_USER_KEY = 'TT_CURRENT_USER';
 const CURRENT_USER_OBJ_KEY = 'TT_CURRENT_USER_OBJ';
 const STARTING_CASH = 2000;
+const AUTH_STORE_KEY = 'TT_AUTH_USERS_V1';
 
 function setCurrentUser(user){
   if (!user || !user.id) return;
@@ -77,9 +78,17 @@ async function authRequest(path, payload){
       body: JSON.stringify(payload || {}),
     });
     const text = await res.text();
-    const json = JSON.parse(text || '{}');
+    let json = null;
+    try {
+      json = JSON.parse(text || '{}');
+    } catch (parseErr) {
+      return { success: false, message: `Request to ${url} failed: ${text?.slice(0, 120) || parseErr.message}` };
+    }
     json._status = res.status;
     json._ok = res.ok;
+    if (!res.ok) {
+      return { success: false, message: json.message || `Request to ${url} failed: status ${res.status}` };
+    }
     return json;
   } catch (e) {
     return { success: false, message: `Request to ${url} failed: ${e.message}` };
@@ -87,24 +96,74 @@ async function authRequest(path, payload){
 }
 
 async function loginUser(username, password){
-  const res = await authRequest('/login', { username, password });
-  if (res.success && res.data) {
-    API.setLogin(res.data);
+  const online = await authRequest('/login', { username, password });
+  if (online.success && online.data) {
+    API.setLogin(online.data);
+    loadWalletState();
+    return online;
+  }
+  const fallback = loginLocal(username, password);
+  if (fallback.success && fallback.data) {
+    API.setLogin(fallback.data);
     loadWalletState();
   }
-  return res;
+  return fallback.success ? fallback : online;
 }
 
 async function registerUser({ email, username, password }){
-  const res = await authRequest('/register', { email, username, password });
-  if (res.success && res.data) {
-    API.setLogin(res.data);
+  const online = await authRequest('/register', { email, username, password });
+  if (online.success && online.data) {
+    API.setLogin(online.data);
+    loadWalletState(true);
+    return online;
+  }
+  const fallback = registerLocal({ email, username, password });
+  if (fallback.success && fallback.data) {
+    API.setLogin(fallback.data);
     loadWalletState(true);
   }
-  return res;
+  return fallback.success ? fallback : online;
 }
 
 window.AuthState = { loginUser, registerUser, currentUser };
+
+function loadAuthUsers(){
+  try {
+    const raw = localStorage.getItem(AUTH_STORE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+
+function saveAuthUsers(users){
+  try { localStorage.setItem(AUTH_STORE_KEY, JSON.stringify(users)); } catch {}
+}
+
+function registerLocal({ email, username, password }){
+  if (!email || !username || !password) {
+    return { success: false, message: 'Email, username, and password are required' };
+  }
+  const users = loadAuthUsers();
+  if (users.some(u => u.username === username)) {
+    return { success: false, message: 'Username already taken (local)' };
+  }
+  if (users.some(u => u.email === email)) {
+    return { success: false, message: 'Email already registered (local)' };
+  }
+  const user = { id: Date.now(), email, username, password };
+  users.push(user);
+  saveAuthUsers(users);
+  return { success: true, message: 'Account created locally (offline mode)', data: user };
+}
+
+function loginLocal(usernameOrEmail, password){
+  const users = loadAuthUsers();
+  const user = users.find(u => u.username === usernameOrEmail || u.email === usernameOrEmail);
+  if (!user) return { success: false, message: 'User not found (local)' };
+  if (user.password !== password) return { success: false, message: 'Wrong password (local)' };
+  return { success: true, message: 'Logged in locally (offline mode)', data: { id: user.id, username: user.username, email: user.email } };
+}
 
 function walletStore(){
   try {
