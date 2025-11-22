@@ -1,6 +1,5 @@
 package api;
 
-import com.google.gson.Gson;
 import db.JDBCConnector;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -16,6 +15,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @WebServlet(name = "LoginServlet", urlPatterns = {"/login"})
@@ -29,12 +29,10 @@ public class LoginServlet extends HttpServlet {
 
         try {
             String body = readBody(req);
-            LoginPayload payload;
-            try {
-                payload = gson.fromJson(body, LoginPayload.class);
-            } catch (Exception parseErr) {
+            LoginPayload payload = parsePayload(body);
+            if (payload == null) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                write(resp, JsonResp.error("Invalid JSON payload: " + parseErr.getMessage()));
+                write(resp, JsonResp.error("Invalid JSON payload"));
                 return;
             }
 
@@ -118,8 +116,17 @@ public class LoginServlet extends HttpServlet {
 
     private void write(HttpServletResponse resp, JsonResp<?> jr) throws IOException {
         try (PrintWriter out = resp.getWriter()) {
-            out.write(gson.toJson(jr));
+            out.write(jr.toJson());
         }
+    }
+
+    private LoginPayload parsePayload(String body) {
+        if (body == null) return null;
+        Map<String, String> map = SimpleJson.parseObject(body);
+        LoginPayload p = new LoginPayload();
+        p.username = map.get("username");
+        p.password = map.get("password");
+        return p;
     }
 
     private boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }

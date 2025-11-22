@@ -1,6 +1,5 @@
 package api;
 
-import com.google.gson.Gson;
 import db.JDBCConnector;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -15,12 +14,11 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @WebServlet(name = "RegisterServlet", urlPatterns = {"/register"})
 public class RegisterServlet extends HttpServlet {
-    private final Gson gson = new Gson();
-
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -28,12 +26,10 @@ public class RegisterServlet extends HttpServlet {
 
         try {
             String body = readBody(req);
-            RegisterPayload payload;
-            try {
-                payload = gson.fromJson(body, RegisterPayload.class);
-            } catch (Exception parseErr) {
+            RegisterPayload payload = parsePayload(body);
+            if (payload == null) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                write(resp, JsonResp.error("Invalid JSON payload: " + parseErr.getMessage()));
+                write(resp, JsonResp.error("Invalid JSON payload"));
                 return;
             }
 
@@ -122,6 +118,16 @@ public class RegisterServlet extends HttpServlet {
         }
     }
 
+    private RegisterPayload parsePayload(String body) {
+        if (body == null) return null;
+        Map<String, String> map = SimpleJson.parseObject(body);
+        RegisterPayload p = new RegisterPayload();
+        p.email = map.get("email");
+        p.username = map.get("username");
+        p.password = map.get("password");
+        return p;
+    }
+
     private String readBody(HttpServletRequest req) throws IOException {
         try (BufferedReader reader = req.getReader()) {
             return reader.lines().collect(Collectors.joining());
@@ -129,7 +135,21 @@ public class RegisterServlet extends HttpServlet {
     }
 
     private void write(HttpServletResponse resp, JsonResp<?> jr) throws IOException {
-        try (PrintWriter out = resp.getWriter()) { out.write(gson.toJson(jr)); }
+        try (PrintWriter out = resp.getWriter()) { out.write(jr.toJson()); }
+    }
+
+    private boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }
+
+    private static class RegisterPayload {
+        String email;
+        String username;
+        String password;
+    }
+
+    private static class UserResponse {
+        long id;
+        String username;
+        String email;
     }
 
     private boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }

@@ -1,6 +1,5 @@
 package api;
 
-import com.google.gson.Gson;
 import db.JDBCConnector;
 import jakarta.servlet.http.*;
 import jakarta.servlet.annotation.WebServlet;
@@ -12,8 +11,6 @@ import java.math.BigDecimal;
 
 @WebServlet(name = "WalletServlet", urlPatterns = {"/wallet"})
 public class WalletServlet extends HttpServlet {
-    private final Gson gson = new Gson();
-
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -88,6 +85,6 @@ public class WalletServlet extends HttpServlet {
     }
 
     private void write(HttpServletResponse resp, JsonResp jr) throws IOException {
-        try (PrintWriter out = resp.getWriter()) { out.write(gson.toJson(jr)); }
+        try (PrintWriter out = resp.getWriter()) { out.write(jr.toJson()); }
     }
 }
