@@ -151,4 +151,18 @@ public class RegisterServlet extends HttpServlet {
         String username;
         String email;
     }
+
+    private boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }
+
+    private static class RegisterPayload {
+        String email;
+        String username;
+        String password;
+    }
+
+    private static class UserResponse {
+        long id;
+        String username;
+        String email;
+    }
 }
