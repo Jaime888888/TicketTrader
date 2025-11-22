@@ -109,8 +109,13 @@
       alert("Quantity must be a positive number");
       return;
     }
-    const trade = (window.WalletState && window.WalletState.applyTradeToState) || (() => ({ success: false, message: "No wallet handler" }));
-    const result = trade({ side: "BUY", eventId, eventName, qty, priceUsd });
+    let result = { success: false };
+    if (window.WalletState && window.WalletState.tradeRemote) {
+      result = await window.WalletState.tradeRemote({ side: "BUY", eventId, eventName, qty, priceUsd });
+    }
+    if (!result.success && window.WalletState && window.WalletState.applyTradeToState) {
+      result = window.WalletState.applyTradeToState({ side: "BUY", eventId, eventName, qty, priceUsd });
+    }
     if (result.success) {
       alert("Purchase complete");
     } else {
@@ -214,7 +219,7 @@
       star.textContent = favbed ? "★" : "☆";
       star.title = favbed ? "Remove from favorites" : "Add to favorites";
       star.style.marginRight = "6px";
-      star.addEventListener("click", (ev) => {
+      star.addEventListener("click", async (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
         if (!API.loggedIn) {
@@ -222,7 +227,9 @@
           window.location.href = "login.html";
           return;
         }
-        Favorites.toggleFavorite && Favorites.toggleFavorite(favPayload);
+        if (Favorites.toggleFavorite) {
+          await Favorites.toggleFavorite(favPayload);
+        }
         const nowFav = Favorites.isFavorite && Favorites.isFavorite(id);
         star.textContent = nowFav ? "★" : "☆";
         star.title = nowFav ? "Remove from favorites" : "Add to favorites";
@@ -275,6 +282,9 @@
 
   // ---------- wire up ----------
   document.addEventListener("DOMContentLoaded", () => {
+    if (API.loggedIn && Favorites.syncFavorites) {
+      Favorites.syncFavorites();
+    }
     // basic form elements (falls back if missing)
     if (!$("#keyword") && !$("#kw")) {
       const kw = document.createElement("input");

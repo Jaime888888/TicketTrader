@@ -11,11 +11,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   const cashEl = document.getElementById('cash');
   const totalEl = document.getElementById('total');
   const tbody = document.querySelector('tbody');
-  let state = (window.WalletState && window.WalletState.loadWalletState()) || { cashUsd: 2000, positions: [] };
+  let state = { cashUsd: 2000, positions: [] };
 
-  async function load() {
+  async function load(forceRemote = false) {
     try {
-      state = (window.WalletState && window.WalletState.loadWalletState()) || state;
+      if (forceRemote && window.WalletState && window.WalletState.fetchRemote) {
+        state = await window.WalletState.fetchRemote();
+      } else {
+        const local = window.WalletState && window.WalletState.loadWalletState && window.WalletState.loadWalletState();
+        state = local || state;
+      }
       render();
     } catch (e) {
       console.error(e);
@@ -51,21 +56,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         </td>
       `;
 
-      tr.querySelector('.buy').onclick = () => {
+      tr.querySelector('.buy').onclick = async () => {
         const q = Number(document.getElementById(qid).value || 0);
-        const trade = (window.WalletState && window.WalletState.applyTradeToState) || (() => ({ success: false, message: 'No wallet handler' }));
-        const result = trade({ side: 'BUY', eventId: pos.eventId, eventName: pos.eventName, qty: q, priceUsd: minPrice });
+        let result = { success: false };
+        if (window.WalletState && window.WalletState.tradeRemote) {
+          result = await window.WalletState.tradeRemote({ side: 'BUY', eventId: pos.eventId, eventName: pos.eventName, qty: q, priceUsd: minPrice });
+        }
+        if (!result.success && window.WalletState && window.WalletState.applyTradeToState) {
+          result = window.WalletState.applyTradeToState({ side: 'BUY', eventId: pos.eventId, eventName: pos.eventName, qty: q, priceUsd: minPrice });
+        }
         if (!result.success) return alert(result.message || 'Trade failed');
-        state = result.state;
+        state = result.state || state;
         render();
       };
 
-      tr.querySelector('.sell').onclick = () => {
+      tr.querySelector('.sell').onclick = async () => {
         const q = Number(document.getElementById(qid).value || 0);
-        const trade = (window.WalletState && window.WalletState.applyTradeToState) || (() => ({ success: false, message: 'No wallet handler' }));
-        const result = trade({ side: 'SELL', eventId: pos.eventId, eventName: pos.eventName, qty: q, priceUsd: maxPrice });
+        let result = { success: false };
+        if (window.WalletState && window.WalletState.tradeRemote) {
+          result = await window.WalletState.tradeRemote({ side: 'SELL', eventId: pos.eventId, eventName: pos.eventName, qty: q, priceUsd: maxPrice });
+        }
+        if (!result.success && window.WalletState && window.WalletState.applyTradeToState) {
+          result = window.WalletState.applyTradeToState({ side: 'SELL', eventId: pos.eventId, eventName: pos.eventName, qty: q, priceUsd: maxPrice });
+        }
         if (!result.success) return alert(result.message || 'Trade failed');
-        state = result.state;
+        state = result.state || state;
         render();
       };
 
@@ -76,5 +91,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     cashEl.textContent = 'Cash: $' + Number(state.cashUsd || 0).toFixed(2);
   }
 
-  load();
+  await load(true);
 });

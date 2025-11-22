@@ -272,7 +272,61 @@ function applyTradeToState({ side, eventId, eventName, qty, priceUsd }){
   return { success: true, state };
 }
 
-window.WalletState = { loadWalletState, saveWalletState, applyTradeToState, resetWallet: () => saveWalletState(defaultWalletState()) };
+async function fetchWalletRemote(){
+  if (!API.loggedIn) return defaultWalletState();
+  const baseState = loadWalletState();
+  try {
+    const cashRes = await fetch(apiPath(`/wallet?type=cash&userId=${API.userId}`));
+    const cashJson = JSON.parse(await cashRes.text() || '{}');
+    if (!cashRes.ok || !cashJson.success) throw new Error(cashJson.message || 'Cash fetch failed');
+
+    const posRes = await fetch(apiPath(`/wallet?type=positions&userId=${API.userId}`));
+    const posJsonRaw = await posRes.text();
+    let posJson;
+    try { posJson = JSON.parse(posJsonRaw || '{}'); } catch (e) { throw new Error(`Positions parse failed: ${posJsonRaw?.slice(0,150)}`); }
+    if (!posRes.ok || !posJson.success) throw new Error(posJson.message || 'Positions fetch failed');
+
+    const state = {
+      cashUsd: Number((cashJson.data && cashJson.data.cashUsd) ?? STARTING_CASH),
+      positions: Array.isArray(posJson.data) ? posJson.data : [],
+    };
+    saveWalletState(state);
+    return state;
+  } catch (e) {
+    console.warn('Falling back to local wallet state:', e.message);
+    return baseState;
+  }
+}
+
+async function tradeRemote(payload){
+  if (!API.loggedIn) return { success: false, message: 'Please log in to trade' };
+  try {
+    const res = await fetch(apiPath('/trade'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...payload, userId: API.userId }),
+    });
+    const text = await res.text();
+    let json = {};
+    try { json = JSON.parse(text || '{}'); } catch (e) { return { success: false, message: `Trade parse error: ${text?.slice(0,150)}` }; }
+    if (!res.ok || !json.success) {
+      return { success: false, message: json.message || `Trade failed (${res.status})` };
+    }
+    const state = await fetchWalletRemote();
+    return { success: true, message: json.message || 'OK', state };
+  } catch (e) {
+    return { success: false, message: e.message };
+  }
+}
+
+window.WalletState = {
+  loadWalletState,
+  saveWalletState,
+  applyTradeToState,
+  resetWallet: () => saveWalletState(defaultWalletState()),
+  fetchRemote: fetchWalletRemote,
+  tradeRemote,
+};
 
 // -------- favorites helpers --------
 function favoritesStore(){
@@ -334,13 +388,55 @@ function removeFavorite(eventId){
   return list;
 }
 
-function toggleFavorite(fav){
-  if (!API.loggedIn) return loadFavorites();
-  if (!fav || !fav.eventId) return loadFavorites();
-  return isFavorite(fav.eventId) ? removeFavorite(fav.eventId) : upsertFavorite(fav);
+async function syncFavoritesFromServer(){
+  if (!API.loggedIn) return [];
+  try {
+    const url = apiPath(`/favorites?userId=${API.userId}`);
+    const res = await fetch(url);
+    const text = await res.text();
+    let json = {};
+    try { json = JSON.parse(text || '{}'); } catch (e) { throw new Error(`Favorites parse error: ${text?.slice(0,150)}`); }
+    if (!res.ok || !json.success) throw new Error(json.message || `Favorites fetch failed (${res.status})`);
+    const list = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
+    saveFavorites(list);
+    return list;
+  } catch (e) {
+    console.warn('Favorites fetch failed, using local cache:', e.message);
+    return loadFavorites();
+  }
 }
 
-window.FavoritesState = { loadFavorites, saveFavorites, upsertFavorite, removeFavorite, toggleFavorite, isFavorite };
+async function toggleFavoriteRemote(fav){
+  if (!API.loggedIn) return loadFavorites();
+  if (!fav || !fav.eventId) return loadFavorites();
+  const removing = isFavorite(fav.eventId);
+  const action = removing ? 'remove' : 'add';
+  try {
+    const res = await fetch(apiPath('/favorites'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...fav, action, userId: API.userId }),
+    });
+    const text = await res.text();
+    let json = {};
+    try { json = JSON.parse(text || '{}'); } catch (e) { throw new Error(`Favorites parse error: ${text?.slice(0,150)}`); }
+    if (!res.ok || !json.success) throw new Error(json.message || `Favorites update failed (${res.status})`);
+    return removing ? removeFavorite(fav.eventId) : upsertFavorite(fav);
+  } catch (e) {
+    console.warn('Favorites update failed, using local cache:', e.message);
+    return removing ? removeFavorite(fav.eventId) : upsertFavorite(fav);
+  }
+}
+
+window.FavoritesState = {
+  loadFavorites,
+  saveFavorites,
+  upsertFavorite,
+  removeFavorite,
+  toggleFavorite: toggleFavoriteRemote,
+  isFavorite,
+  syncFavorites: syncFavoritesFromServer,
+};
 
 function apiPath(path){
   const base = API.base || '';

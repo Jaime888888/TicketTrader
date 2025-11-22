@@ -52,6 +52,15 @@
         <url-pattern>/register</url-pattern>
     </servlet-mapping>
 
+    <servlet>
+        <servlet-name>FavoritesServlet</servlet-name>
+        <servlet-class>api.FavoritesServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>FavoritesServlet</servlet-name>
+        <url-pattern>/favorites</url-pattern>
+    </servlet-mapping>
+
     <welcome-file-list>
         <welcome-file>index.html</welcome-file>
     </welcome-file-list>

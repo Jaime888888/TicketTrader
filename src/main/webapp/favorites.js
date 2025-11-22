@@ -1,11 +1,15 @@
-/* global renderNav, FavoritesState, WalletState */
-document.addEventListener('DOMContentLoaded', () => {
+/* global API, renderNav, FavoritesState, WalletState */
+document.addEventListener('DOMContentLoaded', async () => {
   renderNav();
   const container = document.getElementById('favorites');
 
   if (!API.loggedIn) {
     container.innerHTML = '<div class="muted">Please log in to view favorites.</div>';
     return;
+  }
+
+  if (FavoritesState && FavoritesState.syncFavorites) {
+    await FavoritesState.syncFavorites();
   }
 
   function render(){
@@ -47,11 +51,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const buyBtn = document.createElement('button');
       buyBtn.textContent = 'BUY';
-      buyBtn.addEventListener('click', () => {
+      buyBtn.addEventListener('click', async () => {
         const q = Number(qty.value || 0);
-        const trade = (WalletState && WalletState.applyTradeToState) || (() => ({ success:false, message:'No wallet handler' }));
-        const r = trade({ side: 'BUY', eventId: fav.eventId, eventName: fav.eventName, qty: q, priceUsd: fav.minPriceUsd || fav.maxPriceUsd || 0 });
-        if (!r.success) return alert(r.message || 'Trade failed');
+        let result = { success: false };
+        if (WalletState && WalletState.tradeRemote) {
+          result = await WalletState.tradeRemote({ side: 'BUY', eventId: fav.eventId, eventName: fav.eventName, qty: q, priceUsd: fav.minPriceUsd || fav.maxPriceUsd || 0 });
+        }
+        if (!result.success && WalletState && WalletState.applyTradeToState) {
+          result = WalletState.applyTradeToState({ side: 'BUY', eventId: fav.eventId, eventName: fav.eventName, qty: q, priceUsd: fav.minPriceUsd || fav.maxPriceUsd || 0 });
+        }
+        if (!result.success) return alert(result.message || 'Trade failed');
         alert('Purchase complete');
       });
 

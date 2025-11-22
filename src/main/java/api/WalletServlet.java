@@ -60,7 +60,7 @@ public class WalletServlet extends HttpServlet {
                 while (rs.next()) {
                     Map<String,Object> m = new LinkedHashMap<>();
                     m.put("id", rs.getLong(1));
-                    m.put("eventId", rs.getLong(2));
+                    m.put("eventId", rs.getString(2));
                     m.put("eventName", rs.getString(3));
                     m.put("qty", rs.getInt(4));
                     BigDecimal total = rs.getBigDecimal(5);
@@ -69,6 +69,7 @@ public class WalletServlet extends HttpServlet {
                     m.put("avgCostUsd", avg);
                     m.put("minPriceUsd", rs.getBigDecimal(6));
                     m.put("maxPriceUsd", rs.getBigDecimal(7));
+                    m.put("totalCostUsd", total);
                     list.add(m);
                 }
                 write(resp, new JsonResp(true, "OK", list));

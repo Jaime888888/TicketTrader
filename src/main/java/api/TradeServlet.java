@@ -41,9 +41,6 @@ public class TradeServlet extends HttpServlet {
             if (qty <= 0) { write(resp, JsonResp.error("Quantity must be positive")); return; }
             if (priceUsd == null) { write(resp, JsonResp.error("priceUsd is required")); return; }
 
-            if (qty <= 0) { write(resp, JsonResp.error("Quantity must be positive")); return; }
-            if (priceUsd == null) { write(resp, JsonResp.error("priceUsd is required")); return; }
-
             Connection c = null;
             PreparedStatement qCash = null, uCash = null, qPos = null, iPos = null, uPos = null;
             ResultSet rs = null;
