@@ -17,14 +17,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       if (forceRemote && window.WalletState && window.WalletState.fetchRemote) {
         state = await window.WalletState.fetchRemote();
-      } else {
-        const local = window.WalletState && window.WalletState.loadWalletState && window.WalletState.loadWalletState();
-        state = local || state;
       }
       render();
     } catch (e) {
       console.error(e);
-      tbody.innerHTML = '';
+      tbody.innerHTML = '<tr><td colspan="6" class="muted">Wallet failed to load: ' + (e.message || 'unknown error') + '</td></tr>';
       totalEl.textContent = '';
       alert(e.message || 'Wallet error');
     }
@@ -58,13 +55,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       tr.querySelector('.buy').onclick = async () => {
         const q = Number(document.getElementById(qid).value || 0);
-        let result = { success: false };
-        if (window.WalletState && window.WalletState.tradeRemote) {
-          result = await window.WalletState.tradeRemote({ side: 'BUY', eventId: pos.eventId, eventName: pos.eventName, qty: q, priceUsd: minPrice });
-        }
-        if (!result.success && window.WalletState && window.WalletState.applyTradeToState) {
-          result = window.WalletState.applyTradeToState({ side: 'BUY', eventId: pos.eventId, eventName: pos.eventName, qty: q, priceUsd: minPrice });
-        }
+        const result = window.WalletState && window.WalletState.tradeRemote
+          ? await window.WalletState.tradeRemote({ side: 'BUY', eventId: pos.eventId, eventName: pos.eventName, qty: q, priceUsd: minPrice })
+          : { success: false, message: 'Trading unavailable' };
         if (!result.success) return alert(result.message || 'Trade failed');
         state = result.state || state;
         render();
@@ -72,13 +65,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       tr.querySelector('.sell').onclick = async () => {
         const q = Number(document.getElementById(qid).value || 0);
-        let result = { success: false };
-        if (window.WalletState && window.WalletState.tradeRemote) {
-          result = await window.WalletState.tradeRemote({ side: 'SELL', eventId: pos.eventId, eventName: pos.eventName, qty: q, priceUsd: maxPrice });
-        }
-        if (!result.success && window.WalletState && window.WalletState.applyTradeToState) {
-          result = window.WalletState.applyTradeToState({ side: 'SELL', eventId: pos.eventId, eventName: pos.eventName, qty: q, priceUsd: maxPrice });
-        }
+        const result = window.WalletState && window.WalletState.tradeRemote
+          ? await window.WalletState.tradeRemote({ side: 'SELL', eventId: pos.eventId, eventName: pos.eventName, qty: q, priceUsd: maxPrice })
+          : { success: false, message: 'Trading unavailable' };
         if (!result.success) return alert(result.message || 'Trade failed');
         state = result.state || state;
         render();

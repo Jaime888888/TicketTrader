@@ -100,14 +100,8 @@ async function loginUser(username, password){
   if (online.success && online.data) {
     API.setLogin(online.data);
     loadWalletState();
-    return online;
   }
-  const fallback = loginLocal(username, password);
-  if (fallback.success && fallback.data) {
-    API.setLogin(fallback.data);
-    loadWalletState();
-  }
-  return fallback.success ? fallback : online;
+  return online;
 }
 
 async function registerUser({ email, username, password }){
@@ -115,14 +109,8 @@ async function registerUser({ email, username, password }){
   if (online.success && online.data) {
     API.setLogin(online.data);
     loadWalletState(true);
-    return online;
   }
-  const fallback = registerLocal({ email, username, password });
-  if (fallback.success && fallback.data) {
-    API.setLogin(fallback.data);
-    loadWalletState(true);
-  }
-  return fallback.success ? fallback : online;
+  return online;
 }
 
 window.AuthState = { loginUser, registerUser, currentUser };
@@ -273,29 +261,23 @@ function applyTradeToState({ side, eventId, eventName, qty, priceUsd }){
 }
 
 async function fetchWalletRemote(){
-  if (!API.loggedIn) return defaultWalletState();
-  const baseState = loadWalletState();
-  try {
-    const cashRes = await fetch(apiPath(`/wallet?type=cash&userId=${API.userId}`));
-    const cashJson = JSON.parse(await cashRes.text() || '{}');
-    if (!cashRes.ok || !cashJson.success) throw new Error(cashJson.message || 'Cash fetch failed');
+  if (!API.loggedIn) throw new Error('Please log in to view your wallet');
+  const cashRes = await fetch(apiPath(`/wallet?type=cash&userId=${API.userId}`));
+  const cashJson = JSON.parse(await cashRes.text() || '{}');
+  if (!cashRes.ok || !cashJson.success) throw new Error(cashJson.message || `Cash fetch failed (${cashRes.status})`);
 
-    const posRes = await fetch(apiPath(`/wallet?type=positions&userId=${API.userId}`));
-    const posJsonRaw = await posRes.text();
-    let posJson;
-    try { posJson = JSON.parse(posJsonRaw || '{}'); } catch (e) { throw new Error(`Positions parse failed: ${posJsonRaw?.slice(0,150)}`); }
-    if (!posRes.ok || !posJson.success) throw new Error(posJson.message || 'Positions fetch failed');
+  const posRes = await fetch(apiPath(`/wallet?type=positions&userId=${API.userId}`));
+  const posJsonRaw = await posRes.text();
+  let posJson;
+  try { posJson = JSON.parse(posJsonRaw || '{}'); } catch (e) { throw new Error(`Positions parse failed: ${posJsonRaw?.slice(0,150)}`); }
+  if (!posRes.ok || !posJson.success) throw new Error(posJson.message || `Positions fetch failed (${posRes.status})`);
 
-    const state = {
-      cashUsd: Number((cashJson.data && cashJson.data.cashUsd) ?? STARTING_CASH),
-      positions: Array.isArray(posJson.data) ? posJson.data : [],
-    };
-    saveWalletState(state);
-    return state;
-  } catch (e) {
-    console.warn('Falling back to local wallet state:', e.message);
-    return baseState;
-  }
+  const state = {
+    cashUsd: Number((cashJson.data && cashJson.data.cashUsd) ?? STARTING_CASH),
+    positions: Array.isArray(posJson.data) ? posJson.data : [],
+  };
+  saveWalletState(state);
+  return state;
 }
 
 async function tradeRemote(payload){
@@ -390,20 +372,15 @@ function removeFavorite(eventId){
 
 async function syncFavoritesFromServer(){
   if (!API.loggedIn) return [];
-  try {
-    const url = apiPath(`/favorites?userId=${API.userId}`);
-    const res = await fetch(url);
-    const text = await res.text();
-    let json = {};
-    try { json = JSON.parse(text || '{}'); } catch (e) { throw new Error(`Favorites parse error: ${text?.slice(0,150)}`); }
-    if (!res.ok || !json.success) throw new Error(json.message || `Favorites fetch failed (${res.status})`);
-    const list = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
-    saveFavorites(list);
-    return list;
-  } catch (e) {
-    console.warn('Favorites fetch failed, using local cache:', e.message);
-    return loadFavorites();
-  }
+  const url = apiPath(`/favorites?userId=${API.userId}`);
+  const res = await fetch(url);
+  const text = await res.text();
+  let json = {};
+  try { json = JSON.parse(text || '{}'); } catch (e) { throw new Error(`Favorites parse error: ${text?.slice(0,150)}`); }
+  if (!res.ok || !json.success) throw new Error(json.message || `Favorites fetch failed (${res.status})`);
+  const list = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
+  saveFavorites(list);
+  return list;
 }
 
 async function toggleFavoriteRemote(fav){
@@ -411,21 +388,16 @@ async function toggleFavoriteRemote(fav){
   if (!fav || !fav.eventId) return loadFavorites();
   const removing = isFavorite(fav.eventId);
   const action = removing ? 'remove' : 'add';
-  try {
-    const res = await fetch(apiPath('/favorites'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...fav, action, userId: API.userId }),
-    });
-    const text = await res.text();
-    let json = {};
-    try { json = JSON.parse(text || '{}'); } catch (e) { throw new Error(`Favorites parse error: ${text?.slice(0,150)}`); }
-    if (!res.ok || !json.success) throw new Error(json.message || `Favorites update failed (${res.status})`);
-    return removing ? removeFavorite(fav.eventId) : upsertFavorite(fav);
-  } catch (e) {
-    console.warn('Favorites update failed, using local cache:', e.message);
-    return removing ? removeFavorite(fav.eventId) : upsertFavorite(fav);
-  }
+  const res = await fetch(apiPath('/favorites'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...fav, action, userId: API.userId }),
+  });
+  const text = await res.text();
+  let json = {};
+  try { json = JSON.parse(text || '{}'); } catch (e) { throw new Error(`Favorites parse error: ${text?.slice(0,150)}`); }
+  if (!res.ok || !json.success) throw new Error(json.message || `Favorites update failed (${res.status})`);
+  return removing ? removeFavorite(fav.eventId) : upsertFavorite(fav);
 }
 
 window.FavoritesState = {

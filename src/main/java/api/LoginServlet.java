@@ -42,8 +42,8 @@ public class LoginServlet extends HttpServlet {
                 return;
             }
 
-            DemoUser.ensureSafe(new BigDecimal("2000.00"));
-            UserRecord user = findUserSafe(payload.username);
+            DemoUser.ensure(new BigDecimal("2000.00"));
+            UserRecord user = findUser(payload.username);
             if (user == null) {
                 write(resp, JsonResp.error("User not found"));
                 return;
@@ -85,26 +85,6 @@ public class LoginServlet extends HttpServlet {
             JDBCConnector.closeQuiet(rs);
             JDBCConnector.closeQuiet(ps);
             JDBCConnector.closeQuiet(c);
-        }
-    }
-
-    private UserRecord findUserFallback(String usernameOrEmail) {
-        InMemoryAuthStore.User u = InMemoryAuthStore.find(usernameOrEmail);
-        if (u == null) return null;
-        UserRecord record = new UserRecord();
-        record.id = u.id;
-        record.username = u.username;
-        record.email = u.email;
-        record.passwordHash = u.passwordHash;
-        return record;
-    }
-
-    private UserRecord findUserSafe(String usernameOrEmail) {
-        try {
-            return findUser(usernameOrEmail);
-        } catch (SQLException e) {
-            System.err.println("DB offline, using in-memory auth for login: " + e.getMessage());
-            return findUserFallback(usernameOrEmail);
         }
     }
 

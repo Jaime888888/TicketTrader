@@ -9,7 +9,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   if (FavoritesState && FavoritesState.syncFavorites) {
-    await FavoritesState.syncFavorites();
+    try {
+      await FavoritesState.syncFavorites();
+    } catch (e) {
+      alert(e.message || 'Favorites failed to load');
+    }
   }
 
   function render(){
@@ -53,22 +57,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       buyBtn.textContent = 'BUY';
       buyBtn.addEventListener('click', async () => {
         const q = Number(qty.value || 0);
-        let result = { success: false };
-        if (WalletState && WalletState.tradeRemote) {
-          result = await WalletState.tradeRemote({ side: 'BUY', eventId: fav.eventId, eventName: fav.eventName, qty: q, priceUsd: fav.minPriceUsd || fav.maxPriceUsd || 0 });
-        }
-        if (!result.success && WalletState && WalletState.applyTradeToState) {
-          result = WalletState.applyTradeToState({ side: 'BUY', eventId: fav.eventId, eventName: fav.eventName, qty: q, priceUsd: fav.minPriceUsd || fav.maxPriceUsd || 0 });
-        }
+        const result = WalletState && WalletState.tradeRemote
+          ? await WalletState.tradeRemote({ side: 'BUY', eventId: fav.eventId, eventName: fav.eventName, qty: q, priceUsd: fav.minPriceUsd || fav.maxPriceUsd || 0 })
+          : { success: false, message: 'Trading unavailable' };
         if (!result.success) return alert(result.message || 'Trade failed');
         alert('Purchase complete');
       });
 
       const removeBtn = document.createElement('button');
       removeBtn.textContent = 'Remove';
-      removeBtn.addEventListener('click', () => {
-        FavoritesState && FavoritesState.removeFavorite && FavoritesState.removeFavorite(fav.eventId);
-        render();
+      removeBtn.addEventListener('click', async () => {
+        try {
+          if (FavoritesState && FavoritesState.toggleFavorite) {
+            await FavoritesState.toggleFavorite({ ...fav });
+          }
+          render();
+        } catch (e) {
+          alert(e.message || 'Failed to remove favorite');
+        }
+        if (!result.success) return alert(result.message || 'Trade failed');
+        alert('Purchase complete');
       });
 
       actions.appendChild(qty);

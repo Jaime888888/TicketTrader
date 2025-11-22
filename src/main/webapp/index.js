@@ -109,13 +109,9 @@
       alert("Quantity must be a positive number");
       return;
     }
-    let result = { success: false };
-    if (window.WalletState && window.WalletState.tradeRemote) {
-      result = await window.WalletState.tradeRemote({ side: "BUY", eventId, eventName, qty, priceUsd });
-    }
-    if (!result.success && window.WalletState && window.WalletState.applyTradeToState) {
-      result = window.WalletState.applyTradeToState({ side: "BUY", eventId, eventName, qty, priceUsd });
-    }
+    const result = window.WalletState && window.WalletState.tradeRemote
+      ? await window.WalletState.tradeRemote({ side: "BUY", eventId, eventName, qty, priceUsd })
+      : { success: false, message: "Trading unavailable" };
     if (result.success) {
       alert("Purchase complete");
     } else {
@@ -227,12 +223,16 @@
           window.location.href = "login.html";
           return;
         }
-        if (Favorites.toggleFavorite) {
-          await Favorites.toggleFavorite(favPayload);
+        try {
+          if (Favorites.toggleFavorite) {
+            await Favorites.toggleFavorite(favPayload);
+          }
+          const nowFav = Favorites.isFavorite && Favorites.isFavorite(id);
+          star.textContent = nowFav ? "★" : "☆";
+          star.title = nowFav ? "Remove from favorites" : "Add to favorites";
+        } catch (e) {
+          alert(e.message || "Favorite update failed");
         }
-        const nowFav = Favorites.isFavorite && Favorites.isFavorite(id);
-        star.textContent = nowFav ? "★" : "☆";
-        star.title = nowFav ? "Remove from favorites" : "Add to favorites";
       });
       tdEvent.appendChild(star);
 
