@@ -21,12 +21,28 @@ public class TradeServlet extends HttpServlet {
 
         try (BufferedReader br = req.getReader()) {
             JsonObject body = gson.fromJson(br, JsonObject.class);
-            long userId   = body.get("userId").getAsLong();
+            if (body == null) { write(resp, JsonResp.error("Missing request body")); return; }
+
+            long userId;
+            try {
+                userId = body.has("userId") && !body.get("userId").isJsonNull()
+                        ? body.get("userId").getAsLong()
+                        : DemoUser.ensure(BigDecimal.valueOf(2000));
+                DemoUser.ensure(BigDecimal.valueOf(2000));
+            } catch (Exception e) {
+                write(resp, JsonResp.error("Unable to prepare demo wallet: " + e.getMessage()));
+                return;
+            }
+
             String side   = body.get("side").getAsString(); // "BUY" or "SELL"
-            long eventId  = body.get("eventId").getAsLong();
-            String eventName = body.get("eventName").getAsString();
+            String eventId  = body.get("eventId").getAsString();
+            String eventName = body.has("eventName") && !body.get("eventName").isJsonNull()
+                    ? body.get("eventName").getAsString() : "";
             int qty       = body.get("qty").getAsInt();
             BigDecimal priceUsd = body.get("priceUsd").getAsBigDecimal();
+
+            if (qty <= 0) { write(resp, JsonResp.error("Quantity must be positive")); return; }
+            if (priceUsd == null) { write(resp, JsonResp.error("priceUsd is required")); return; }
 
             Connection c = null;
             PreparedStatement qCash = null, uCash = null, qPos = null, iPos = null, uPos = null;
@@ -58,7 +74,7 @@ public class TradeServlet extends HttpServlet {
                     // upsert position
                     qPos = c.prepareStatement("SELECT id, qty, total_cost_usd, min_price_usd, max_price_usd FROM positions WHERE user_id=? AND event_id=? FOR UPDATE");
                     qPos.setLong(1, userId);
-                    qPos.setLong(2, eventId);
+                    qPos.setString(2, eventId);
                     rs = qPos.executeQuery();
                     if (rs.next()) {
                         long pid = rs.getLong(1);
@@ -83,7 +99,7 @@ public class TradeServlet extends HttpServlet {
                     } else {
                         iPos = c.prepareStatement("INSERT INTO positions(user_id, event_id, event_name, qty, total_cost_usd, min_price_usd, max_price_usd) VALUES(?,?,?,?,?,?,?)");
                         iPos.setLong(1, userId);
-                        iPos.setLong(2, eventId);
+                        iPos.setString(2, eventId);
                         iPos.setString(3, eventName);
                         iPos.setInt(4, qty);
                         iPos.setBigDecimal(5, tradeValue);
@@ -100,7 +116,7 @@ public class TradeServlet extends HttpServlet {
                 } else { // SELL
                     qPos = c.prepareStatement("SELECT id, qty, total_cost_usd FROM positions WHERE user_id=? AND event_id=? FOR UPDATE");
                     qPos.setLong(1, userId);
-                    qPos.setLong(2, eventId);
+                    qPos.setString(2, eventId);
                     rs = qPos.executeQuery();
                     if (!rs.next()) {
                         write(resp, new JsonResp(false, "No position to sell"));
