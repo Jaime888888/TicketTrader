@@ -147,12 +147,10 @@
     let city = cityInput ? cityInput.value.trim() : "";
     const hint = document.getElementById("hint");
 
-    // Show results immediately with a sensible default when nothing is provided.
     if (!keyword && !city) {
-      keyword = "music";
-      city = "Los Angeles";
-      if (kwInput && !kwInput.value) kwInput.value = keyword;
-      if (cityInput && !cityInput.value) cityInput.value = city;
+      renderEvents([], "Enter a keyword and/or city to search.");
+      if (hint) hint.textContent = "";
+      return;
     }
 
     try {
@@ -422,7 +420,5 @@
 
     const btn = $("#searchBtn") || $("#btnSearch") || $("#search") || $("#doSearch");
     if (btn) btn.addEventListener("click", search);
-    // initial load: show events right away using the default search
-    search();
   });
 })();
