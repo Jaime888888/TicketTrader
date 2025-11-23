@@ -143,14 +143,16 @@
   async function search() {
     const kwInput = $("#keyword") || $("#kw") || $("#searchKeyword");
     const cityInput = $("#city") || $("#searchCity");
-    const keyword = kwInput ? kwInput.value.trim() : "";
-    const city = cityInput ? cityInput.value.trim() : "";
+    let keyword = kwInput ? kwInput.value.trim() : "";
+    let city = cityInput ? cityInput.value.trim() : "";
     const hint = document.getElementById("hint");
 
+    // Show results immediately with a sensible default when nothing is provided.
     if (!keyword && !city) {
-      renderEvents([], "Enter a keyword and/or city to search.");
-      if (hint) hint.textContent = "";
-      return;
+      keyword = "music";
+      city = "Los Angeles";
+      if (kwInput && !kwInput.value) kwInput.value = keyword;
+      if (cityInput && !cityInput.value) cityInput.value = city;
     }
 
     try {
@@ -420,7 +422,7 @@
 
     const btn = $("#searchBtn") || $("#btnSearch") || $("#search") || $("#doSearch");
     if (btn) btn.addEventListener("click", search);
-    // initial state: no auto-search; prompt the user to run one
-    renderEvents([], "Enter a keyword and/or city to search.");
+    // initial load: show events right away using the default search
+    search();
   });
 })();
