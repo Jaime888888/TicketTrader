@@ -54,7 +54,10 @@ const API = {
     const dir  = path.substring(0, Math.max(0, path.lastIndexOf('/')));
     return dir || '';
   })(),
-  proxyBase: localStorage.getItem('TT_PROXY_BASE') || 'https://example-proxy.invalid',
+  // Default to the provided Ticketmaster Proxy base; allow overriding via
+  // localStorage for testing.
+  proxyBase: localStorage.getItem('TT_PROXY_BASE')
+    || 'https://us-central1-quixotic-dynamo-165616.cloudfunctions.net/getEvents',
   get loggedIn(){ return !!currentUserId(); },
   get userId(){
     return currentUserId();

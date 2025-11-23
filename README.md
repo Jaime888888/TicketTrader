@@ -11,7 +11,7 @@
 - **Frontend assets** under `src/main/webapp` with page scripts such as `index.js` (search/buy), `wallet.js` (balances + trades), and the shared helper `common.js` that seeds the demo user and builds API paths.
 - **Database schema** in `setup.sql`, which creates `users`, `favorites`, `wallet`, and `positions` tables and seeds wallet balances with $2,000.
 
-- **Search, Favorite, & Buy**: `index.js` reads the bundled mock search JSON at `/mock/getEvents/search.json` (no backend call needed), renders results on load, filters them by keyword/city inputs, lets signed-in users star events into Favorites, and books trades through `/trade` (falling back to a local wallet state only if the backend is offline).
+- **Search, Favorite, & Buy**: `index.js` now calls the provided Ticketmaster Proxy endpoints directly (`/search?keyword=...&city=...` and `/eventDetail/{id}`) to populate the table and detail panel. Signed-in users can star events into Favorites and book trades through `/trade` (falling back to a local wallet state only if the backend is offline). Price ranges of `-1/-1` disable trading per the assignment rules.
 - **Favorites**: `favorites.js` syncs the favorites list from `/favorites` for the logged-in user, lets you remove items, and provides a quick BUY action that sends trades to `/trade`.
 - **Wallet**: `wallet.js` now loads balances/positions from `/wallet` for the active user and executes BUY/SELL via `/trade`, falling back to the browser-stored wallet only if the server is unreachable.
 - **Demo bootstrapping**: `common.js` stores auth state from the backend, exposes `WalletState`, `AuthState`, and handles per-user favorites/wallet storage.

@@ -119,33 +119,25 @@
     }
   }
 
-  // ---------- search / list ----------
-  // Always read from the bundled mock search JSON to avoid servlet routing issues
-  // or missing backend endpoints in the simplified demo. Use a URL that works
-  // whether the app is deployed at "/" or a context root like "/TicketTrader".
-  const searchUrl = `${(API.base || "").replace(/\/$/, "")}/mock/getEvents/search.json`;
-  let cachedEvents = null;
+  // ---------- search / details ----------
+  const TM_PROXY = API.proxyBase ||
+    "https://us-central1-quixotic-dynamo-165616.cloudfunctions.net/getEvents";
 
-  async function loadEvents() {
-    if (cachedEvents) return cachedEvents;
-    const res = await fetch(searchUrl, { method: "GET" });
-    const json = await safeJson(res, searchUrl);
+  async function fetchEvents(keyword, city) {
+    const url = `${TM_PROXY}/search?keyword=${encodeURIComponent(keyword || "")}` +
+      `&city=${encodeURIComponent(city || "")}`;
+    const res = await fetch(url, { method: "GET" });
+    const json = await safeJson(res, url);
     if (!res.ok) throw new Error(json.message || `Search failed (${res.status})`);
-    cachedEvents = Array.isArray(json) ? json : Array.isArray(json.data) ? json.data : [];
-    return cachedEvents;
+    return Array.isArray(json) ? json : Array.isArray(json.data) ? json.data : [];
   }
 
-  function filterEvents(list, keyword, city) {
-    const kw = (keyword || "").toLowerCase();
-    const ct = (city || "").toLowerCase();
-    return (list || []).filter((e) => {
-      const name = (e.name || e.title || "").toLowerCase();
-      const venue = (e.venue || e.venueName || "").toLowerCase();
-      const cityVal = (e.city || "").toLowerCase();
-      const kwOk = kw ? (name.includes(kw) || venue.includes(kw) || cityVal.includes(kw)) : true;
-      const cityOk = ct ? (cityVal.includes(ct) || venue.includes(ct)) : true;
-      return kwOk && cityOk;
-    });
+  async function fetchDetail(eventId) {
+    const url = `${TM_PROXY}/eventDetail/${encodeURIComponent(eventId)}`;
+    const res = await fetch(url, { method: "GET" });
+    const json = await safeJson(res, url);
+    if (!res.ok) throw new Error(json.message || `Detail failed (${res.status})`);
+    return json;
   }
 
   async function search() {
@@ -155,14 +147,11 @@
     const city = cityInput ? cityInput.value.trim() : "";
 
     try {
-      const events = await loadEvents();
-      const filtered = filterEvents(events, keyword, city);
-      renderEvents(filtered);
+      const events = await fetchEvents(keyword || "music", city || "Los Angeles");
+      renderEvents(events);
       const hint = document.getElementById("hint");
       if (hint) {
-        hint.textContent = keyword || city
-          ? `Showing ${filtered.length} of ${events.length} events filtered by keyword/location.`
-          : `Showing ${events.length} events from bundled mock data.`;
+        hint.textContent = `Showing ${events.length} events for keyword "${keyword || "music"}" and city "${city || "Los Angeles"}".`;
       }
     } catch (e) {
       console.error(e);
@@ -177,13 +166,13 @@
 
     tbody.innerHTML = "";
     if (!Array.isArray(events) || events.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4">No results</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5">No results</td></tr>`;
       return;
     }
 
     for (const e of events) {
       // expected minimal fields; use fallbacks so nothing crashes
-      const id = e.id ?? e.eventId ?? e.eid ?? "";
+      const id = e.eventId ?? e.id ?? e.eid ?? "";
       const name = e.name ?? e.title ?? "Event";
       const date = fmtDate(e.date ?? e.localDate ?? e.startDate ?? "");
       const venue = e.venue ?? e.venueName ?? "";
@@ -196,6 +185,9 @@
       const favbed = Favorites.isFavorite && Favorites.isFavorite(id);
 
       const tr = document.createElement("tr");
+
+      const tdId = document.createElement("td");
+      tdId.textContent = id;
 
       const tdDate = document.createElement("td");
       tdDate.textContent = date;
@@ -272,11 +264,105 @@
       const tdVenue = document.createElement("td");
       tdVenue.textContent = venue;
 
+      tr.appendChild(tdId);
       tr.appendChild(tdDate);
       tr.appendChild(tdPic);
       tr.appendChild(tdEvent);
       tr.appendChild(tdVenue);
       tbody.appendChild(tr);
+
+      tr.addEventListener("click", () => {
+        if (!API.loggedIn) return; // only logged-in users can open details
+        showDetails(id, name);
+      });
+    }
+  }
+
+  async function showDetails(eventId, fallbackName) {
+    const panel = document.getElementById("details");
+    const body = document.getElementById("details-body");
+    if (!panel || !body) return;
+
+    body.innerHTML = "Loading...";
+    panel.style.display = "block";
+
+    try {
+      const detail = await fetchDetail(eventId);
+      const dateObj = detail.date || {};
+      const eventObj = detail.event || {};
+      const priceObj = detail.price || {};
+      const localDate = dateObj.localDate || "";
+      const localTime = dateObj.localTime || "";
+      const url = eventObj.url || "#";
+      const min = Number(priceObj.min ?? -1);
+      const max = Number(priceObj.max ?? -1);
+      const disableTrade = min === -1 && max === -1;
+
+      body.innerHTML = `
+        <div><strong>Date:</strong> ${localDate} ${localTime}</div>
+        <div><strong>Event (Artist/Tour):</strong> ${eventObj.name || fallbackName || eventId}</div>
+        <div><strong>Venue:</strong> ${eventObj.venue || ''}</div>
+        <div><strong>Buy Ticket At:</strong> <a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a></div>
+        <div><strong>Price ranges:</strong> ${min === -1 && max === -1 ? 'N/A' : `${min} - ${max}`}</div>
+      `;
+
+      const qty = document.createElement("input");
+      qty.type = "number";
+      qty.min = "1";
+      qty.value = "1";
+      qty.style.width = "80px";
+      const buyBtn = document.createElement("button");
+      buyBtn.textContent = "PURCHASE";
+      buyBtn.disabled = disableTrade;
+      buyBtn.addEventListener("click", () => {
+        if (!API.loggedIn) {
+          alert("Please log in to trade");
+          window.location.href = "login.html";
+          return;
+        }
+        if (disableTrade) {
+          alert("Price unavailable; cannot trade this event");
+          return;
+        }
+        buyTickets(eventId, eventObj.name || fallbackName || eventId, qty, min > 0 ? min : max);
+      });
+
+      const favBtn = document.createElement("button");
+      const favbed = Favorites.isFavorite && Favorites.isFavorite(eventId);
+      favBtn.textContent = favbed ? "★" : "☆";
+      favBtn.title = favbed ? "Remove from favorites" : "Add to favorites";
+      favBtn.addEventListener("click", async () => {
+        if (!API.loggedIn) {
+          alert("Please log in to save favorites");
+          window.location.href = "login.html";
+          return;
+        }
+        const payload = {
+          eventId,
+          eventName: eventObj.name || fallbackName || eventId,
+          date: localDate,
+          venue: eventObj.venue,
+          minPriceUsd: priceObj.min,
+          maxPriceUsd: priceObj.max,
+          url,
+        };
+        const updated = Favorites.toggleFavorite ? Favorites.toggleFavorite(payload) : [];
+        const nowFav = Favorites.isFavorite && Favorites.isFavorite(eventId);
+        favBtn.textContent = nowFav ? "★" : "☆";
+        favBtn.title = nowFav ? "Remove from favorites" : "Add to favorites";
+        return updated;
+      });
+
+      const controls = document.createElement("div");
+      controls.style.marginTop = "8px";
+      controls.appendChild(document.createTextNode("Quantity: "));
+      controls.appendChild(qty);
+      controls.appendChild(buyBtn);
+      controls.appendChild(favBtn);
+      body.appendChild(controls);
+    } catch (e) {
+      console.error(e);
+      body.textContent = e.message || "Failed to load details";
     }
   }
 
@@ -310,7 +396,7 @@
       tbl.style.width = "100%";
       tbl.innerHTML = `
         <thead>
-          <tr><th>Date</th><th>Pic</th><th>Event</th><th>Venue</th></tr>
+          <tr><th>Event ID</th><th>Date</th><th>Pic</th><th>Event</th><th>Venue</th></tr>
         </thead>
         <tbody id="results-body"></tbody>
       `;
