@@ -148,7 +148,13 @@
     const hint = document.getElementById("hint");
 
     if (!keyword && !city) {
-      renderEvents([], "Enter a keyword and/or city to search.");
+      renderEvents([], "Enter a keyword and city to search.");
+      if (hint) hint.textContent = "";
+      return;
+    }
+
+    if (!city) {
+      renderEvents([], "City is required by the Ticketmaster proxy.");
       if (hint) hint.textContent = "";
       return;
     }
