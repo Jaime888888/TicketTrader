@@ -176,7 +176,7 @@
       const name = e.name ?? e.title ?? "Event";
       const date = fmtDate(e.date ?? e.localDate ?? e.startDate ?? "");
       const venue = e.venue ?? e.venueName ?? "";
-      const img = e.image ?? e.pic ?? (Array.isArray(e.images) ? e.images[0] : "");
+      const img = e.image ?? e.pic ?? (Array.isArray(e.images) ? e.images[0] : e.images || "");
       const minP = e.minPrice ?? e.priceMin ?? e.low ?? 100;
       const maxP = e.maxPrice ?? e.priceMax ?? e.high ?? minP;
       const ticketUrl = e.url ?? e.ticketUrl ?? "#";
@@ -185,9 +185,6 @@
       const favbed = Favorites.isFavorite && Favorites.isFavorite(id);
 
       const tr = document.createElement("tr");
-
-      const tdId = document.createElement("td");
-      tdId.textContent = id;
 
       const tdDate = document.createElement("td");
       tdDate.textContent = date;
@@ -264,7 +261,7 @@
       const tdVenue = document.createElement("td");
       tdVenue.textContent = venue;
 
-      tr.appendChild(tdId);
+      tr.dataset.eventId = id;
       tr.appendChild(tdDate);
       tr.appendChild(tdPic);
       tr.appendChild(tdEvent);
@@ -396,7 +393,7 @@
       tbl.style.width = "100%";
       tbl.innerHTML = `
         <thead>
-          <tr><th>Event ID</th><th>Date</th><th>Pic</th><th>Event</th><th>Venue</th></tr>
+          <tr><th>Date</th><th>Pic</th><th>Event</th><th>Venue</th></tr>
         </thead>
         <tbody id="results-body"></tbody>
       `;
