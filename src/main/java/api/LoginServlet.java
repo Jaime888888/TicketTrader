@@ -1,7 +1,6 @@
 package api;
 
 import db.JDBCConnector;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,25 +18,10 @@ import java.util.stream.Collectors;
 
 @WebServlet(name = "LoginServlet", urlPatterns = {"/login"})
 public class LoginServlet extends HttpServlet {
-    private final Gson gson = new Gson();
+    private static final long serialVersionUID = 1L;
 
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        resp.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-        resp.setContentType("application/json;charset=UTF-8");
-        write(resp, JsonResp.error("Use POST /login with JSON payload"));
-    }
-
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        resp.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-        resp.setContentType("application/json;charset=UTF-8");
-        write(resp, JsonResp.error("Use POST /login with JSON payload"));
-    }
-
-    @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
-            throws ServletException, IOException {
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         resp.setContentType("application/json;charset=UTF-8");
 
         try {
@@ -72,6 +56,13 @@ public class LoginServlet extends HttpServlet {
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             write(resp, JsonResp.error("Login failed: " + e.getMessage()));
         }
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        resp.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        resp.setContentType("application/json;charset=UTF-8");
+        write(resp, JsonResp.error("Use POST /login with JSON payload"));
     }
 
     private UserRecord findUser(String usernameOrEmail) throws SQLException {
