@@ -22,3 +22,5 @@
   MySQL driver, creates the `ticket_trader` database if missing, and will lay down the core tables/triggers on first use so
   fresh environments can start without running SQL manually.
 - You can still run the DDL in `setup.sql` yourself; if the schema already exists, the runtime bootstrap will no-op.
+- A tiny `Gson` stub class ships in `src/main/java/Gson.java` to avoid startup failures on servers that still scan for a
+  `Gson` type even though the app now uses the built-in `SimpleJson` helper instead of the external library.
