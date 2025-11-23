@@ -1,6 +1,11 @@
-body{font-family:Arial;margin:24px}
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-.card{border:1px solid #ddd;padding:8px;border-radius:6px}
-.card img{width:100%;height:120px;object-fit:cover}
-.muted{color:#666;margin-top:8px}
-.row{display:flex;justify-content:space-between}
+body { font-family: Arial, sans-serif; margin: 0; padding: 0 16px; }
+nav { padding: 12px 0; }
+nav a { margin-right: 12px; text-decoration: none; color: #1a73e8; }
+main { max-width: 900px; margin: 0 auto; }
+.muted { color: #666; }
+#favorites { display: grid; gap: 12px; margin-top: 12px; }
+.fav-card { border: 1px solid #ddd; padding: 12px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.fav-title { font-weight: bold; margin-bottom: 4px; }
+.fav-meta { color: #444; margin-bottom: 4px; }
+.fav-actions { margin-top: 8px; display: flex; gap: 8px; align-items: center; }
+.fav-actions button { padding: 4px 10px; }

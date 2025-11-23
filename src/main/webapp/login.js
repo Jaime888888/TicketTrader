@@ -1,53 +1,37 @@
-// login.js – strict, minimal, robust
-(() => {
-  const goHome = () => location.href = 'index.html';
+/* global renderNav, API */
 
-  const safeJson = async (r) => {
-    const text = await r.text();
-    try { return JSON.parse(text); }
-    catch { return { success: false, message: 'Server returned non-JSON', raw: text }; }
-  };
+document.addEventListener('DOMContentLoaded', () => {
+  renderNav();
 
-  // LOGIN
-  document.getElementById('loginBtn').onclick = async () => {
-    const username = document.getElementById('luser').value.trim();
-    const password = document.getElementById('lpass').value.trim();
+  const loginForm = document.getElementById('loginForm');
+  const signupForm = document.getElementById('signupForm');
 
-    const r = await fetch('login', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ username, password })
-    });
+  loginForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const user = document.getElementById('loginUser').value.trim();
+    const pass = document.getElementById('loginPass').value;
+    if (!user || !pass) return alert('Please enter username/email and password');
+    const auth = window.AuthState;
+    if (!auth || typeof auth.loginUser !== 'function') return alert('Auth failed to load');
+    const res = await auth.loginUser(user, pass);
+    if (!res.success) return alert(res.message || 'Login failed');
+    alert('Login successful');
+    window.location.href = 'index.html';
+  });
 
-    const j = await safeJson(r);
-    if (j.success) {
-      localStorage.setItem('TT_USER_ID', j.data.userId);
-      localStorage.setItem('TT_USERNAME', username);
-      goHome();
-    } else {
-      alert(j.message || 'Login failed');
-    }
-  };
-
-  // SIGN UP
-  document.getElementById('signupBtn').onclick = async () => {
-    const username = document.getElementById('suser').value.trim();
-    const email    = document.getElementById('semail').value.trim();
-    const password = document.getElementById('spass').value.trim();
-
-    const r = await fetch('register', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ username, email, password })
-    });
-
-    const j = await safeJson(r);
-    if (j.success) {
-      localStorage.setItem('TT_USER_ID', j.data.userId);
-      localStorage.setItem('TT_USERNAME', username);
-      goHome();
-    } else {
-      alert(j.message || 'Signup failed');
-    }
-  };
-})();
+  signupForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('signupEmail').value.trim();
+    const username = document.getElementById('signupUser').value.trim();
+    const pass = document.getElementById('signupPass').value;
+    const confirm = document.getElementById('signupConfirm').value;
+    if (!email || !username || !pass || !confirm) return alert('All fields are required');
+    if (pass !== confirm) return alert('Passwords do not match');
+    const auth = window.AuthState;
+    if (!auth || typeof auth.registerUser !== 'function') return alert('Auth failed to load');
+    const res = await auth.registerUser({ email, username, password: pass });
+    if (!res.success) return alert(res.message || 'Signup failed');
+    alert('Account created');
+    window.location.href = 'index.html';
+  });
+});
