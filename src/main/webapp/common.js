@@ -58,6 +58,15 @@ function currentUserId(){
   return Number.isFinite(num) ? num : null;
 }
 
+const PROXY_BASE_DEFAULT = 'https://us-central1-quixotic-dynamo-165616.cloudfunctions.net';
+
+function sanitizeProxyBase(raw){
+  const val = (raw || '').trim();
+  if (!val) return PROXY_BASE_DEFAULT;
+  // Drop any trailing ticketmaster paths so we always append getEvents ourselves.
+  return val.replace(/\/+$/, '').replace(/\/+getEvents\/?$/, '');
+}
+
 const API = {
   base: (function computeBase(){
     // Derive the servlet context root from the directory path (full depth) so nested
@@ -67,9 +76,8 @@ const API = {
     return dir || '';
   })(),
   // Default to the provided Ticketmaster Proxy base; allow overriding via
-  // localStorage for testing.
-  proxyBase: localStorage.getItem('TT_PROXY_BASE')
-    || 'https://us-central1-quixotic-dynamo-165616.cloudfunctions.net/getEvents',
+  // localStorage for testing, but always normalize away duplicated paths.
+  proxyBase: sanitizeProxyBase(localStorage.getItem('TT_PROXY_BASE')),
   get loggedIn(){ return !!currentUserId(); },
   get userId(){
     return currentUserId();

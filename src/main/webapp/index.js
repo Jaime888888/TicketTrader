@@ -120,8 +120,8 @@
   }
 
   // ---------- search / details ----------
-  const TM_PROXY = API.proxyBase ||
-    "https://us-central1-quixotic-dynamo-165616.cloudfunctions.net/getEvents";
+  const TM_PROXY_ROOT = (API.proxyBase || "https://us-central1-quixotic-dynamo-165616.cloudfunctions.net").replace(/\/+$/, "");
+  const TM_PROXY = `${TM_PROXY_ROOT}/getEvents`;
 
   async function fetchEvents(keyword, city) {
     const url = `${TM_PROXY}/search?keyword=${encodeURIComponent(keyword || "")}` +
@@ -133,7 +133,7 @@
   }
 
   async function fetchDetail(eventId) {
-    const url = `${TM_PROXY}/eventDetail/${encodeURIComponent(eventId)}`;
+    const url = `${TM_PROXY}/eventDetail?eventId=${encodeURIComponent(eventId)}`;
     const res = await fetch(url, { method: "GET" });
     const json = await safeJson(res, url);
     if (!res.ok) throw new Error(json.message || `Detail failed (${res.status})`);
