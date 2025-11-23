@@ -10,7 +10,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.math.BigDecimal;
-import java.security.MessageDigest;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -21,6 +20,13 @@ import java.util.stream.Collectors;
 @WebServlet(name = "LoginServlet", urlPatterns = {"/login"})
 public class LoginServlet extends HttpServlet {
     private final Gson gson = new Gson();
+
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        resp.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        resp.setContentType("application/json;charset=UTF-8");
+        write(resp, JsonResp.error("Use POST /login with JSON payload"));
+    }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
@@ -103,6 +109,7 @@ public class LoginServlet extends HttpServlet {
     private LoginPayload parsePayload(String body) {
         if (body == null) return null;
         Map<String, String> map = SimpleJson.parseObject(body);
+        if (map == null) return null;
         LoginPayload p = new LoginPayload();
         p.username = map.get("username");
         p.password = map.get("password");
@@ -111,17 +118,7 @@ public class LoginServlet extends HttpServlet {
 
     private boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }
 
-    static String hash(String raw) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] digest = md.digest(raw.getBytes());
-            StringBuilder sb = new StringBuilder();
-            for (byte b : digest) sb.append(String.format("%02x", b));
-            return sb.toString();
-        } catch (Exception e) {
-            throw new RuntimeException("Unable to hash password", e);
-        }
-    }
+    static String hash(String raw) { return HashUtil.sha256(raw); }
 
     private static class LoginPayload {
         String username;

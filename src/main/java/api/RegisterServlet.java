@@ -20,6 +20,13 @@ import java.util.stream.Collectors;
 @WebServlet(name = "RegisterServlet", urlPatterns = {"/register"})
 public class RegisterServlet extends HttpServlet {
     @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        resp.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        resp.setContentType("application/json;charset=UTF-8");
+        write(resp, JsonResp.error("Use POST /register with JSON payload"));
+    }
+
+    @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
         resp.setContentType("application/json;charset=UTF-8");
@@ -49,7 +56,7 @@ public class RegisterServlet extends HttpServlet {
                 return;
             }
 
-            long id = insertUser(payload.username, payload.email, LoginServlet.hash(payload.password));
+            long id = insertUser(payload.username, payload.email, HashUtil.sha256(payload.password));
             UserResponse user = new UserResponse();
             user.id = id;
             user.username = payload.username;
@@ -103,6 +110,7 @@ public class RegisterServlet extends HttpServlet {
     private RegisterPayload parsePayload(String body) {
         if (body == null) return null;
         Map<String, String> map = SimpleJson.parseObject(body);
+        if (map == null) return null;
         RegisterPayload p = new RegisterPayload();
         p.email = map.get("email");
         p.username = map.get("username");

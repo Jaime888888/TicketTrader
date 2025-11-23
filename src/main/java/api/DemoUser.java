@@ -9,7 +9,7 @@ public final class DemoUser {
     public static final long ID = 1L;
     private static final String USERNAME = "demo";
     private static final String EMAIL = "demo@example.com";
-    private static final String PASS_HASH = LoginServlet.hash("demo123");
+    private static final String PASS_HASH = HashUtil.sha256("demo123");
 
     private DemoUser() {}
 
