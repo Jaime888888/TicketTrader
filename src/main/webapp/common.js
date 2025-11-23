@@ -5,6 +5,7 @@ const CURRENT_USER_KEY = 'TT_CURRENT_USER';
 const CURRENT_USER_OBJ_KEY = 'TT_CURRENT_USER_OBJ';
 const STARTING_CASH = 2000;
 const AUTH_STORE_KEY = 'TT_AUTH_USERS_V1';
+const SESSION_RESET_KEY = 'TT_SESSION_LOGOUT_DONE';
 
 function setCurrentUser(user){
   if (!user || !user.id) return;
@@ -28,6 +29,17 @@ function clearCurrentUser(){
     localStorage.removeItem(CURRENT_USER_OBJ_KEY);
   } catch {}
 }
+
+// Ensure every fresh browser session starts logged out so the first view always
+// matches the assignment expectation. We only clear once per tab/session to
+// avoid logging the user out again after they intentionally sign in.
+try {
+  const sess = window.sessionStorage;
+  if (sess && !sess.getItem(SESSION_RESET_KEY)) {
+    clearCurrentUser();
+    sess.setItem(SESSION_RESET_KEY, '1');
+  }
+} catch {}
 
 function currentUser(){
   try {

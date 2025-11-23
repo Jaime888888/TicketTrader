@@ -145,28 +145,35 @@
     const cityInput = $("#city") || $("#searchCity");
     const keyword = kwInput ? kwInput.value.trim() : "";
     const city = cityInput ? cityInput.value.trim() : "";
+    const hint = document.getElementById("hint");
+
+    if (!keyword && !city) {
+      renderEvents([], "Enter a keyword and/or city to search.");
+      if (hint) hint.textContent = "";
+      return;
+    }
 
     try {
-      const events = await fetchEvents(keyword || "music", city || "Los Angeles");
-      renderEvents(events);
-      const hint = document.getElementById("hint");
+      const events = await fetchEvents(keyword, city);
+      renderEvents(events, `Showing ${events.length} events for keyword "${keyword || "(any)"}" and city "${city || "(any)"}".`);
       if (hint) {
-        hint.textContent = `Showing ${events.length} events for keyword "${keyword || "music"}" and city "${city || "Los Angeles"}".`;
+        hint.textContent = `Showing ${events.length} events for keyword "${keyword || "(any)"}" and city "${city || "(any)"}".`;
       }
     } catch (e) {
       console.error(e);
-      renderEvents([]);
+      renderEvents([], e.message || "Search failed");
+      if (hint) hint.textContent = "";
       alert(e.message || "Search failed");
     }
   }
 
-  function renderEvents(events) {
+  function renderEvents(events, emptyMessage = "No results") {
     const tbody = $("#results-body") || $("#results tbody");
     if (!tbody) return;
 
     tbody.innerHTML = "";
     if (!Array.isArray(events) || events.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5">No results</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="4">${emptyMessage}</td></tr>`;
       return;
     }
 
@@ -413,8 +420,7 @@
 
     const btn = $("#searchBtn") || $("#btnSearch") || $("#search") || $("#doSearch");
     if (btn) btn.addEventListener("click", search);
-
-    // initial load
-    search();
+    // initial state: no auto-search; prompt the user to run one
+    renderEvents([], "Enter a keyword and/or city to search.");
   });
 })();
