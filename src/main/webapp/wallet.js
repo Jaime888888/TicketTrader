@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       render();
     } catch (e) {
       console.error(e);
-        if (cards) cards.innerHTML = '<div class="muted">Wallet failed to load: ' + (e.message || 'unknown error') + '</div>';
+      if (cards) cards.innerHTML = '<div class="muted">Wallet failed to load: ' + (e.message || 'unknown error') + '</div>';
       if (totalEl) totalEl.textContent = '';
       alert(e.message || 'Wallet error');
     }
@@ -37,6 +37,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (cards) cards.innerHTML = '';
     let sum = 0;
 
+    const table = document.createElement('table');
+    table.className = 'wallet-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Event</th>
+          <th>Quantity</th>
+          <th>Change</th>
+          <th>Avg Cost</th>
+          <th>Total Cost</th>
+          <th>Current Price</th>
+          <th>Market Value</th>
+          <th>Trade</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+    const tbody = table.querySelector('tbody');
+
     for (const pos of (state.positions || [])) {
       const qtyNum = Number(pos.qty || 0);
       const totalCost = Number(pos.totalCostUsd ?? pos.totalCost ?? 0);
@@ -48,33 +67,31 @@ document.addEventListener('DOMContentLoaded', async () => {
       const mvNum  = current * qtyNum;
       sum += Number(mvNum);
 
-      const card = document.createElement('div');
-      card.className = 'pos-card';
       const qid = (Math.random().toString(36).slice(2));
-      card.innerHTML = `
-        <h3>${pos.eventName || pos.eventId}</h3>
-        <div class="metrics">
-          <div class="metric"><label>Quantity</label><div class="value">${qtyNum}</div></div>
-          <div class="metric"><label>Change</label><div class="value">${fmt(change)}</div></div>
-          <div class="metric"><label>Avg Cost</label><div class="value">${fmt(avgNum)}</div></div>
-          <div class="metric"><label>Total Cost</label><div class="value">${fmt(totalCost)}</div></div>
-          <div class="metric"><label>Current Price</label><div class="value">${fmt(current)}</div></div>
-          <div class="metric"><label>Market Value</label><div class="value">${fmt(mvNum)}</div></div>
-        </div>
-        <div class="trade-row">
-          <label for="${qid}">Qty</label>
-          <input id="${qid}" type="number" min="1" value="1" />
-          <label><input type="radio" name="side-${qid}" value="BUY" checked/> BUY</label>
-          <label><input type="radio" name="side-${qid}" value="SELL"/> SELL</label>
-          <button class="trade">Submit</button>
-        </div>
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${pos.eventName || pos.eventId}</td>
+        <td class="right">${qtyNum}</td>
+        <td class="right">${fmt(change)}</td>
+        <td class="right">${fmt(avgNum)}</td>
+        <td class="right">${fmt(totalCost)}</td>
+        <td class="right">${fmt(current)}</td>
+        <td class="right">${fmt(mvNum)}</td>
+        <td class="trade-cell">
+          <div class="trade-row">
+            <input id="${qid}" type="number" min="1" value="1" />
+            <label><input type="radio" name="side-${qid}" value="BUY" checked/> BUY</label>
+            <label><input type="radio" name="side-${qid}" value="SELL"/> SELL</label>
+            <button class="trade">Submit</button>
+          </div>
+        </td>
       `;
 
-      card.querySelector('.trade').onclick = async () => {
+      row.querySelector('.trade').onclick = async () => {
         const q = Number(document.getElementById(qid).value || 0);
-        const side = (card.querySelector(`input[name="side-${qid}"]:checked`) || {}).value || 'BUY';
+        const side = (row.querySelector(`input[name="side-${qid}"]:checked`) || {}).value || 'BUY';
         const minPrice = minP || current;
-        const maxPrice = maxP || minP || current;
+        const maxPrice = maxP || minPrice || current;
         const result = window.WalletState && window.WalletState.tradeRemote
           ? await window.WalletState.tradeRemote({ side, eventId: pos.eventId, eventName: pos.eventName, qty: q, priceUsd: side === 'BUY' ? minPrice : maxPrice, minPriceUsd: minPrice, maxPriceUsd: maxPrice })
           : { success: false, message: 'Trading unavailable' };
@@ -83,12 +100,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         render();
       };
 
-      if (cards) cards.appendChild(card);
+      tbody.appendChild(row);
     }
 
-    if (cards && (!state.positions || state.positions.length === 0)) {
-      cards.innerHTML = '<div class="muted">No holdings yet.</div>';
+    if (tbody.children.length === 0) {
+      const empty = document.createElement('tr');
+      empty.innerHTML = '<td colspan="8" class="muted">No holdings yet.</td>';
+      tbody.appendChild(empty);
     }
+
+    if (cards) cards.appendChild(table);
 
     if (totalEl) totalEl.textContent = 'Total Account Value: ' + fmt(sum + state.cashUsd);
     if (cashEl) cashEl.textContent = 'Cash Balance: ' + fmt(state.cashUsd);
