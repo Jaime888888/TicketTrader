@@ -1,6 +1,7 @@
 /* global API, renderNav, FavoritesState, WalletState, sanitizeProxyBase */
 document.addEventListener('DOMContentLoaded', async () => {
   renderNav();
+  const container = document.getElementById('favorites');
 
   const container = document.getElementById('favorites');
   const detailPanel = document.getElementById('fav-detail');
