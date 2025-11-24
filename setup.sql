@@ -17,27 +17,30 @@ CREATE TABLE users (
 ) ENGINE=InnoDB;
 
 
-CREATE TABLE wallet (
-  user_id    BIGINT UNSIGNED NOT NULL,
-  cash_usd   DECIMAL(10,2)   NOT NULL DEFAULT 3000.00,  -- starting cash
-  PRIMARY KEY (user_id),
-  CONSTRAINT fk_wallet_user
+CREATE TABLE favorites (
+  id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id        BIGINT UNSIGNED NOT NULL,
+  event_id       VARCHAR(64)     NOT NULL,
+  event_name     VARCHAR(255)    NULL,
+  event_date     VARCHAR(64)     NULL,
+  venue          VARCHAR(255)    NULL,
+  min_price_usd  DECIMAL(10,2)   NULL,
+  max_price_usd  DECIMAL(10,2)   NULL,
+  url            VARCHAR(500)    NULL,
+  created_at     TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_fav_user_event (user_id, event_id),
+  CONSTRAINT fk_fav_user
     FOREIGN KEY (user_id) REFERENCES users(id)
     ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 
-CREATE TABLE favorites (
-  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  user_id     BIGINT UNSIGNED NOT NULL,
-  event_id    VARCHAR(64)     NOT NULL,  -- Ticketmaster event id
-  event_name  VARCHAR(255)    NULL,      -- optional cached label
-  event_image TEXT            NULL,      -- optional cached image url
-  created_at  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  UNIQUE KEY uq_fav_user_event (user_id, event_id),
-  KEY ix_fav_user (user_id),
-  CONSTRAINT fk_fav_user
+CREATE TABLE wallet (
+  user_id    BIGINT UNSIGNED NOT NULL,
+  cash_usd   DECIMAL(10,2)   NOT NULL DEFAULT 3000.00,  -- starting cash
+  PRIMARY KEY (user_id),
+  CONSTRAINT fk_wallet_user
     FOREIGN KEY (user_id) REFERENCES users(id)
     ON DELETE CASCADE
 ) ENGINE=InnoDB;
