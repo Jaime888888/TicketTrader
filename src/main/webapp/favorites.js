@@ -71,6 +71,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (FavoritesState && FavoritesState.toggleFavorite) {
             await FavoritesState.toggleFavorite({ ...fav });
           }
+          alert('Removed from favorites');
           render();
         } catch (e) {
           alert(e.message || 'Failed to remove favorite');
