@@ -1,3 +1,11 @@
 body{font-family:Arial;margin:24px}
-table{border-collapse:collapse;width:100%;margin-top:12px}
-th,td{border:1px solid #ddd;padding:8px}
+.summary{display:flex;gap:16px;margin-bottom:12px;font-weight:bold}
+.positions{display:flex;flex-direction:column;gap:12px}
+.wallet-table{width:100%;border-collapse:collapse;background:#fafafa}
+.wallet-table th,.wallet-table td{border:1px solid #ddd;padding:8px;text-align:left}
+.wallet-table th{background:#f1f1f1}
+.wallet-table .right{text-align:right;font-variant-numeric:tabular-nums}
+.trade-cell{min-width:220px}
+.trade-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.trade-row input[type="number"]{width:70px;padding:4px}
+.muted{color:#777;text-align:center}
