@@ -27,9 +27,11 @@
   };
 
   async function fetchDetail(eventId) {
+    const mockBase = (API.base || '').replace(/\/$/, '');
     const urls = [
       `${TM_PROXY}/eventDetail/${encodeURIComponent(eventId)}`,
       `${TM_PROXY}/eventDetail?eventId=${encodeURIComponent(eventId)}`,
+      `${mockBase}/mock/getEvents/eventDetail/${encodeURIComponent(eventId)}.json`,
     ];
 
     let lastErr = null;
@@ -45,6 +47,15 @@
     }
     throw lastErr || new Error('Detail failed');
   }
+
+  const fallbackDetail = (fav = {}) => ({
+    date: { localDate: fav.date || '', localTime: fav.localTime || '' },
+    event: { name: fav.eventName || fav.eventId || '', venue: fav.venue || '', url: fav.url || '#' },
+    price: {
+      min: Number.isFinite(Number(fav.minPriceUsd)) ? Number(fav.minPriceUsd) : -1,
+      max: Number.isFinite(Number(fav.maxPriceUsd)) ? Number(fav.maxPriceUsd) : -1,
+    },
+  });
 
   const formatPriceLabel = (min, max) => {
     const minVal = Number(min);
@@ -193,9 +204,20 @@
         }
         try {
           const detail = await fetchDetail(fav.eventId);
-          renderDetail({ ...fav, minPriceUsd: fav.minPriceUsd ?? detail?.price?.min, maxPriceUsd: fav.maxPriceUsd ?? detail?.price?.max }, detail);
+          renderDetail({
+            ...fav,
+            minPriceUsd: fav.minPriceUsd ?? detail?.price?.min,
+            maxPriceUsd: fav.maxPriceUsd ?? detail?.price?.max,
+          }, detail);
         } catch (err) {
-          if (detailPanel) detailPanel.textContent = err.message || 'Failed to load details';
+          const detail = fallbackDetail(fav);
+          renderDetail({ ...fav, minPriceUsd: fav.minPriceUsd ?? detail.price.min, maxPriceUsd: fav.maxPriceUsd ?? detail.price.max }, detail);
+          if (detailPanel) {
+            const msg = document.createElement('div');
+            msg.className = 'muted';
+            msg.textContent = err.message || 'Showing saved info because the Ticketmaster detail call failed.';
+            detailPanel.appendChild(msg);
+          }
         }
       });
 
