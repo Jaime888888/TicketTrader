@@ -87,6 +87,6 @@ CREATE TRIGGER trg_users_after_insert
 AFTER INSERT ON users
 FOR EACH ROW
 BEGIN
-  INSERT INTO wallet(user_id, cash_usd) VALUES (NEW.id, 3000.00);
+  INSERT INTO wallet(user_id, cash_usd) VALUES (NEW.id, 2000.00);
 END//
 DELIMITER ;
