@@ -178,11 +178,8 @@
     const labels = ["Date", "Pic", "Event", "Venue"];
     const headerRow = table.querySelector("thead tr");
     if (headerRow) {
-      // Drop an Event ID column if it exists and ensure only four headings remain.
-      if (headerRow.cells.length > 4 && /event/i.test(headerRow.cells[0].textContent || "")) {
-        headerRow.deleteCell(0);
-      }
-      while (headerRow.cells.length > 4) headerRow.deleteCell(headerRow.cells.length - 1);
+      // Drop any extra columns (including a lingering Event ID) so only four remain.
+      while (headerRow.cells.length > 4) headerRow.deleteCell(0);
       labels.forEach((txt, idx) => {
         if (!headerRow.cells[idx]) {
           const th = document.createElement("th");
@@ -195,10 +192,7 @@
     const body = table.tBodies && table.tBodies[0];
     if (body) {
       Array.from(body.rows).forEach((row) => {
-        if (row.cells.length > 4 && /event/i.test(row.cells[0].textContent || "")) {
-          row.deleteCell(0);
-        }
-        while (row.cells.length > 4) row.deleteCell(row.cells.length - 1);
+        while (row.cells.length > 4) row.deleteCell(0);
       });
     }
   }
