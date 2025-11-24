@@ -25,8 +25,8 @@ public class TradeServlet extends HttpServlet {
             try {
                 userId = body.containsKey("userId") && body.get("userId") != null && !body.get("userId").isEmpty()
                         ? Long.parseLong(body.get("userId"))
-                        : DemoUser.ensure(BigDecimal.valueOf(2000));
-                DemoUser.ensure(BigDecimal.valueOf(2000));
+                        : DemoUser.ensure(DemoUser.DEFAULT_CASH);
+                DemoUser.seedWallet(userId, DemoUser.DEFAULT_CASH);
             } catch (Exception e) {
                 write(resp, JsonResp.error("Unable to prepare demo wallet: " + e.getMessage()));
                 return;
@@ -37,9 +37,16 @@ public class TradeServlet extends HttpServlet {
             String eventName = body.getOrDefault("eventName", "");
             int qty       = parseInt(body.get("qty"));
             BigDecimal priceUsd = parseDecimal(body.get("priceUsd"));
+            BigDecimal minPriceUsd = parseDecimal(body.get("minPriceUsd"));
+            BigDecimal maxPriceUsd = parseDecimal(body.get("maxPriceUsd"));
 
             if (qty <= 0) { write(resp, JsonResp.error("Quantity must be positive")); return; }
-            if (priceUsd == null) { write(resp, JsonResp.error("priceUsd is required")); return; }
+            if (priceUsd == null && minPriceUsd == null && maxPriceUsd == null) { write(resp, JsonResp.error("priceUsd is required")); return; }
+
+            BigDecimal buyPrice = (minPriceUsd != null) ? minPriceUsd : priceUsd;
+            BigDecimal sellPrice = (maxPriceUsd != null) ? maxPriceUsd : (priceUsd != null ? priceUsd : minPriceUsd);
+            if (buyPrice == null) buyPrice = sellPrice;
+            if (sellPrice == null) sellPrice = buyPrice;
 
             Connection c = null;
             PreparedStatement qCash = null, uCash = null, qPos = null, iPos = null, uPos = null;
@@ -60,7 +67,7 @@ public class TradeServlet extends HttpServlet {
                 BigDecimal cash = rs.getBigDecimal(1);
                 rs.close();
 
-                BigDecimal tradeValue = priceUsd.multiply(BigDecimal.valueOf(qty));
+                BigDecimal tradeValue = ("BUY".equalsIgnoreCase(side) ? buyPrice : sellPrice).multiply(BigDecimal.valueOf(qty));
 
                 if ("BUY".equalsIgnoreCase(side)) {
                     if (cash.compareTo(tradeValue) < 0) {
@@ -83,8 +90,8 @@ public class TradeServlet extends HttpServlet {
 
                         int newQty = oldQty + qty;
                         BigDecimal newCost = oldCost.add(tradeValue);
-                        BigDecimal newMin = minP.min(priceUsd);
-                        BigDecimal newMax = maxP.max(priceUsd);
+                        BigDecimal newMin = minP.min(buyPrice);
+                        BigDecimal newMax = maxP.max(sellPrice);
 
                         uPos = c.prepareStatement("UPDATE positions SET qty=?, total_cost_usd=?, min_price_usd=?, max_price_usd=? WHERE id=?");
                         uPos.setInt(1, newQty);
@@ -100,8 +107,8 @@ public class TradeServlet extends HttpServlet {
                         iPos.setString(3, eventName);
                         iPos.setInt(4, qty);
                         iPos.setBigDecimal(5, tradeValue);
-                        iPos.setBigDecimal(6, priceUsd);
-                        iPos.setBigDecimal(7, priceUsd);
+                        iPos.setBigDecimal(6, buyPrice);
+                        iPos.setBigDecimal(7, sellPrice);
                         iPos.executeUpdate();
                     }
 
@@ -111,7 +118,7 @@ public class TradeServlet extends HttpServlet {
                     uCash.executeUpdate();
 
                 } else { // SELL
-                    qPos = c.prepareStatement("SELECT id, qty, total_cost_usd FROM positions WHERE user_id=? AND event_id=? FOR UPDATE");
+                    qPos = c.prepareStatement("SELECT id, qty, total_cost_usd, min_price_usd, max_price_usd FROM positions WHERE user_id=? AND event_id=? FOR UPDATE");
                     qPos.setLong(1, userId);
                     qPos.setString(2, eventId);
                     rs = qPos.executeQuery();
@@ -123,6 +130,8 @@ public class TradeServlet extends HttpServlet {
                     long pid = rs.getLong(1);
                     int oldQty = rs.getInt(2);
                     BigDecimal oldCost = rs.getBigDecimal(3);
+                    BigDecimal minP = rs.getBigDecimal(4);
+                    BigDecimal maxP = rs.getBigDecimal(5);
                     rs.close();
 
                     if (qty > oldQty) {
@@ -141,10 +150,12 @@ public class TradeServlet extends HttpServlet {
                         uPos.setLong(1, pid);
                         uPos.executeUpdate();
                     } else {
-                        uPos = c.prepareStatement("UPDATE positions SET qty=?, total_cost_usd=? WHERE id=?");
+                        uPos = c.prepareStatement("UPDATE positions SET qty=?, total_cost_usd=?, min_price_usd=?, max_price_usd=? WHERE id=?");
                         uPos.setInt(1, newQty);
                         uPos.setBigDecimal(2, newCost);
-                        uPos.setLong(3, pid);
+                        uPos.setBigDecimal(3, minP);
+                        uPos.setBigDecimal(4, maxP);
+                        uPos.setLong(5, pid);
                         uPos.executeUpdate();
                     }
 

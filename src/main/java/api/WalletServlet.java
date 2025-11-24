@@ -21,10 +21,10 @@ public class WalletServlet extends HttpServlet {
 
         try {
             if (userId == null || userId.isEmpty()) {
-                userId = String.valueOf(DemoUser.ensure(BigDecimal.valueOf(2000)));
+                userId = String.valueOf(DemoUser.ensure(DemoUser.DEFAULT_CASH));
             } else {
                 // Make sure the wallet exists for the requested user
-                DemoUser.ensure(BigDecimal.valueOf(2000));
+                DemoUser.seedWallet(Long.parseLong(userId), DemoUser.DEFAULT_CASH);
             }
         } catch (Exception e) {
             write(resp, new JsonResp(false, "Unable to prepare demo wallet: " + e.getMessage()));

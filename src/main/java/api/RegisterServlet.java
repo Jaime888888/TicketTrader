@@ -46,7 +46,7 @@ public class RegisterServlet extends HttpServlet {
                 return;
             }
 
-            DemoUser.ensure(new BigDecimal("2000.00"));
+            DemoUser.ensure(DemoUser.DEFAULT_CASH);
             if (exists("SELECT 1 FROM users WHERE username = ?", payload.username)) {
                 write(resp, JsonResp.error("Username already taken"));
                 return;
@@ -57,6 +57,7 @@ public class RegisterServlet extends HttpServlet {
             }
 
             long id = insertUser(payload.username, payload.email, HashUtil.sha256(payload.password));
+            DemoUser.seedWallet(id, DemoUser.DEFAULT_CASH);
             UserResponse user = new UserResponse();
             user.id = id;
             user.username = payload.username;

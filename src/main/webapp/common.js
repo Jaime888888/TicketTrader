@@ -236,34 +236,36 @@ if (typeof window !== 'undefined') {
   window.saveToLocal = saveToLocal;
 }
 
-function applyTradeToState({ side, eventId, eventName, qty, priceUsd }){
+function applyTradeToState({ side, eventId, eventName, qty, priceUsd, minPriceUsd, maxPriceUsd }){
   if (!API.loggedIn) {
     return { success: false, message: 'Please log in to trade', state: defaultWalletState() };
   }
 
   const state = loadWalletState();
   const cleanQty = Number(qty || 0);
-  const cleanPrice = Number(priceUsd || 0);
-  if (!eventId || cleanQty <= 0 || cleanPrice <= 0) {
+  const buyPrice = Number((minPriceUsd ?? priceUsd ?? maxPriceUsd ?? 0));
+  const sellPrice = Number((maxPriceUsd ?? priceUsd ?? minPriceUsd ?? 0));
+  const effectivePrice = side === 'SELL' ? sellPrice : buyPrice;
+  if (!eventId || cleanQty <= 0 || effectivePrice <= 0) {
     return { success: false, message: 'Invalid trade data', state };
   }
 
   const idx = state.positions.findIndex(p => p.eventId === eventId);
-  const existing = idx >= 0 ? state.positions[idx] : { eventId, eventName, qty: 0, totalCostUsd: 0, minPriceUsd: cleanPrice, maxPriceUsd: cleanPrice };
-  const minPrice = Number(existing.minPriceUsd || cleanPrice);
-  const maxPrice = Number(existing.maxPriceUsd || cleanPrice);
+  const existing = idx >= 0 ? state.positions[idx] : { eventId, eventName, qty: 0, totalCostUsd: 0, minPriceUsd: buyPrice, maxPriceUsd: sellPrice };
+  const minPrice = Number(existing.minPriceUsd || buyPrice);
+  const maxPrice = Number(existing.maxPriceUsd || sellPrice);
 
   if (side === 'BUY') {
-    const cost = cleanQty * cleanPrice;
+    const cost = cleanQty * buyPrice;
     if (cost > state.cashUsd) return { success: false, message: 'Not enough cash', state };
     state.cashUsd -= cost;
     existing.qty = Number(existing.qty || 0) + cleanQty;
     existing.totalCostUsd = Number(existing.totalCostUsd || 0) + cost;
-    existing.minPriceUsd = Math.min(minPrice, cleanPrice);
-    existing.maxPriceUsd = Math.max(maxPrice, cleanPrice);
+    existing.minPriceUsd = Math.min(minPrice, buyPrice);
+    existing.maxPriceUsd = Math.max(maxPrice, sellPrice);
   } else if (side === 'SELL') {
     if (cleanQty > Number(existing.qty || 0)) return { success: false, message: 'Cannot sell more than owned', state };
-    const proceeds = cleanQty * maxPrice;
+    const proceeds = cleanQty * (sellPrice || maxPrice);
     const avgCost = existing.qty ? (Number(existing.totalCostUsd || 0) / Number(existing.qty)) : 0;
     state.cashUsd += proceeds;
     existing.qty = Number(existing.qty || 0) - cleanQty;

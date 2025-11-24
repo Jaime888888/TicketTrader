@@ -23,9 +23,9 @@ public class FavoritesServlet extends HttpServlet {
         long userId;
         try {
             userId = (userIdParam == null || userIdParam.isEmpty())
-                    ? DemoUser.ensure(BigDecimal.valueOf(2000))
+                    ? DemoUser.ensure(DemoUser.DEFAULT_CASH)
                     : Long.parseLong(userIdParam);
-            DemoUser.ensure(BigDecimal.valueOf(2000));
+            DemoUser.seedWallet(userId, DemoUser.DEFAULT_CASH);
         } catch (Exception e) {
             write(resp, JsonResp.error("Unable to prepare demo user: " + e.getMessage()));
             return;
@@ -80,8 +80,8 @@ public class FavoritesServlet extends HttpServlet {
             try {
                 userId = body.containsKey("userId") && body.get("userId") != null && !body.get("userId").isEmpty()
                         ? Long.parseLong(body.get("userId"))
-                        : DemoUser.ensure(BigDecimal.valueOf(2000));
-                DemoUser.ensure(BigDecimal.valueOf(2000));
+                        : DemoUser.ensure(DemoUser.DEFAULT_CASH);
+                DemoUser.seedWallet(userId, DemoUser.DEFAULT_CASH);
             } catch (Exception e) {
                 write(resp, JsonResp.error("Unable to prepare demo user: " + e.getMessage()));
                 return;

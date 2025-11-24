@@ -103,14 +103,14 @@
   }
 
   // ---------- buy ----------
-  async function buyTickets(eventId, eventName, qtyInput, priceUsd) {
+  async function buyTickets(eventId, eventName, qtyInput, minPriceUsd, maxPriceUsd) {
     const qty = parseInt(qtyInput.value || "1", 10);
     if (!Number.isFinite(qty) || qty <= 0) {
       alert("Quantity must be a positive number");
       return;
     }
     const result = window.WalletState && window.WalletState.tradeRemote
-      ? await window.WalletState.tradeRemote({ side: "BUY", eventId, eventName, qty, priceUsd })
+      ? await window.WalletState.tradeRemote({ side: "BUY", eventId, eventName, qty, priceUsd: minPriceUsd, minPriceUsd, maxPriceUsd })
       : { success: false, message: "Trading unavailable" };
     if (result.success) {
       alert("Purchase complete");
@@ -347,7 +347,7 @@
           alert("Price unavailable; cannot trade this event");
           return;
         }
-        buyTickets(eventId, eventObj.name || fallbackName || eventId, qty, min > 0 ? min : max);
+        buyTickets(eventId, eventObj.name || fallbackName || eventId, qty, min > 0 ? min : max, max);
       });
 
       const favBtn = document.createElement("button");
