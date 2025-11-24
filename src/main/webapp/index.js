@@ -176,13 +176,15 @@
   function renderEvents(events, emptyMessage = "No results") {
     const table = $("#results");
     if (table) {
-      const thead = table.querySelector("thead");
-      if (thead) {
-        thead.innerHTML = `<tr><th>Date</th><th>Pic</th><th>Event</th><th>Venue</th></tr>`;
-      }
+      // Rebuild the header/body each render to guarantee a four-column layout and
+      // avoid any lingering Event ID columns from prior markup.
+      table.innerHTML = `
+        <thead><tr><th>Date</th><th>Pic</th><th>Event</th><th>Venue</th></tr></thead>
+        <tbody id="results-body"></tbody>
+      `;
     }
 
-    const tbody = $("#results-body") || (table && table.querySelector("tbody"));
+    const tbody = table && table.querySelector("tbody");
     if (!tbody) return;
 
     tbody.innerHTML = "";
