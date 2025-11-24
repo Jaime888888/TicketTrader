@@ -1,6 +1,5 @@
 package api;
 
-import com.google.gson.Gson;
 import db.JDBCConnector;
 import jakarta.servlet.http.*;
 import jakarta.servlet.annotation.WebServlet;
@@ -12,8 +11,6 @@ import java.math.BigDecimal;
 
 @WebServlet(name = "WalletServlet", urlPatterns = {"/wallet"})
 public class WalletServlet extends HttpServlet {
-    private final Gson gson = new Gson();
-
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -22,7 +19,19 @@ public class WalletServlet extends HttpServlet {
         String type   = req.getParameter("type");    // "cash" or "positions"
         String userId = req.getParameter("userId");
 
-        if (type == null || userId == null) {
+        try {
+            if (userId == null || userId.isEmpty()) {
+                userId = String.valueOf(DemoUser.ensure(DemoUser.DEFAULT_CASH));
+            } else {
+                // Make sure the wallet exists for the requested user
+                DemoUser.seedWallet(Long.parseLong(userId), DemoUser.DEFAULT_CASH);
+            }
+        } catch (Exception e) {
+            write(resp, new JsonResp(false, "Unable to prepare demo wallet: " + e.getMessage()));
+            return;
+        }
+
+        if (type == null) {
             write(resp, new JsonResp(false, "Missing parameters"));
             return;
         }
@@ -51,7 +60,7 @@ public class WalletServlet extends HttpServlet {
                 while (rs.next()) {
                     Map<String,Object> m = new LinkedHashMap<>();
                     m.put("id", rs.getLong(1));
-                    m.put("eventId", rs.getLong(2));
+                    m.put("eventId", rs.getString(2));
                     m.put("eventName", rs.getString(3));
                     m.put("qty", rs.getInt(4));
                     BigDecimal total = rs.getBigDecimal(5);
@@ -60,6 +69,7 @@ public class WalletServlet extends HttpServlet {
                     m.put("avgCostUsd", avg);
                     m.put("minPriceUsd", rs.getBigDecimal(6));
                     m.put("maxPriceUsd", rs.getBigDecimal(7));
+                    m.put("totalCostUsd", total);
                     list.add(m);
                 }
                 write(resp, new JsonResp(true, "OK", list));
@@ -76,6 +86,6 @@ public class WalletServlet extends HttpServlet {
     }
 
     private void write(HttpServletResponse resp, JsonResp jr) throws IOException {
-        try (PrintWriter out = resp.getWriter()) { out.write(gson.toJson(jr)); }
+        try (PrintWriter out = resp.getWriter()) { out.write(jr.toJson()); }
     }
 }
