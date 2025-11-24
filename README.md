@@ -17,7 +17,7 @@
 - **Demo bootstrapping**: `common.js` stores auth state from the backend, exposes `WalletState`, `AuthState`, and handles per-user favorites/wallet storage.
 
 ## Deployment tips
-- Ensure your build copies compiled classes into the exploded webapp (Tomcat needs `.class` files under `WEB-INF/classes`). You can generate them locally with `build-support/compile.sh` which targets that folder using the bundled servlet stubs.
+- Ensure your build copies compiled classes into the exploded webapp (Tomcat needs `.class` files under `WEB-INF/classes`). The Eclipse project output has been pointed at `src/main/webapp/WEB-INF/classes`, so rebuilding the project in Eclipse will drop the `.class` files where Tomcat expects them. You can also generate them locally with `build-support/compile.sh` which targets that folder using the bundled servlet stubs.
 - Update `db/JDBCConnector.java` if your MySQL host, schema name, or credentials differ from the defaults. It now auto-loads the
   MySQL driver, creates the `ticket_trader` database if missing, and will lay down the core tables/triggers on first use so
   fresh environments can start without running SQL manually.
