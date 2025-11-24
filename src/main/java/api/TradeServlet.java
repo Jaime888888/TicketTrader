@@ -1,7 +1,5 @@
 package api;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 import db.JDBCConnector;
 import jakarta.servlet.http.*;
 import jakarta.servlet.annotation.WebServlet;
@@ -9,24 +7,46 @@ import jakarta.servlet.ServletException;
 import java.io.*;
 import java.math.BigDecimal;
 import java.sql.*;
+import java.util.stream.Collectors;
 
 @WebServlet(name = "TradeServlet", urlPatterns = {"/trade"})
 public class TradeServlet extends HttpServlet {
-    private final Gson gson = new Gson();
-
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
         resp.setContentType("application/json;charset=UTF-8");
 
         try (BufferedReader br = req.getReader()) {
-            JsonObject body = gson.fromJson(br, JsonObject.class);
-            long userId   = body.get("userId").getAsLong();
-            String side   = body.get("side").getAsString(); // "BUY" or "SELL"
-            long eventId  = body.get("eventId").getAsLong();
-            String eventName = body.get("eventName").getAsString();
-            int qty       = body.get("qty").getAsInt();
-            BigDecimal priceUsd = body.get("priceUsd").getAsBigDecimal();
+            String raw = br.lines().collect(java.util.stream.Collectors.joining());
+            java.util.Map<String,String> body = SimpleJson.parseObject(raw);
+            if (body == null || body.isEmpty()) { write(resp, JsonResp.error("Missing request body")); return; }
+
+            long userId;
+            try {
+                userId = body.containsKey("userId") && body.get("userId") != null && !body.get("userId").isEmpty()
+                        ? Long.parseLong(body.get("userId"))
+                        : DemoUser.ensure(DemoUser.DEFAULT_CASH);
+                DemoUser.seedWallet(userId, DemoUser.DEFAULT_CASH);
+            } catch (Exception e) {
+                write(resp, JsonResp.error("Unable to prepare demo wallet: " + e.getMessage()));
+                return;
+            }
+
+            String side   = body.getOrDefault("side", ""); // "BUY" or "SELL"
+            String eventId  = body.getOrDefault("eventId", "");
+            String eventName = body.getOrDefault("eventName", "");
+            int qty       = parseInt(body.get("qty"));
+            BigDecimal priceUsd = parseDecimal(body.get("priceUsd"));
+            BigDecimal minPriceUsd = parseDecimal(body.get("minPriceUsd"));
+            BigDecimal maxPriceUsd = parseDecimal(body.get("maxPriceUsd"));
+
+            if (qty <= 0) { write(resp, JsonResp.error("Quantity must be positive")); return; }
+            if (priceUsd == null && minPriceUsd == null && maxPriceUsd == null) { write(resp, JsonResp.error("priceUsd is required")); return; }
+
+            BigDecimal buyPrice = (minPriceUsd != null) ? minPriceUsd : priceUsd;
+            BigDecimal sellPrice = (maxPriceUsd != null) ? maxPriceUsd : (priceUsd != null ? priceUsd : minPriceUsd);
+            if (buyPrice == null) buyPrice = sellPrice;
+            if (sellPrice == null) sellPrice = buyPrice;
 
             Connection c = null;
             PreparedStatement qCash = null, uCash = null, qPos = null, iPos = null, uPos = null;
@@ -47,7 +67,7 @@ public class TradeServlet extends HttpServlet {
                 BigDecimal cash = rs.getBigDecimal(1);
                 rs.close();
 
-                BigDecimal tradeValue = priceUsd.multiply(BigDecimal.valueOf(qty));
+                BigDecimal tradeValue = ("BUY".equalsIgnoreCase(side) ? buyPrice : sellPrice).multiply(BigDecimal.valueOf(qty));
 
                 if ("BUY".equalsIgnoreCase(side)) {
                     if (cash.compareTo(tradeValue) < 0) {
@@ -58,7 +78,7 @@ public class TradeServlet extends HttpServlet {
                     // upsert position
                     qPos = c.prepareStatement("SELECT id, qty, total_cost_usd, min_price_usd, max_price_usd FROM positions WHERE user_id=? AND event_id=? FOR UPDATE");
                     qPos.setLong(1, userId);
-                    qPos.setLong(2, eventId);
+                    qPos.setString(2, eventId);
                     rs = qPos.executeQuery();
                     if (rs.next()) {
                         long pid = rs.getLong(1);
@@ -70,8 +90,8 @@ public class TradeServlet extends HttpServlet {
 
                         int newQty = oldQty + qty;
                         BigDecimal newCost = oldCost.add(tradeValue);
-                        BigDecimal newMin = minP.min(priceUsd);
-                        BigDecimal newMax = maxP.max(priceUsd);
+                        BigDecimal newMin = minP.min(buyPrice);
+                        BigDecimal newMax = maxP.max(sellPrice);
 
                         uPos = c.prepareStatement("UPDATE positions SET qty=?, total_cost_usd=?, min_price_usd=?, max_price_usd=? WHERE id=?");
                         uPos.setInt(1, newQty);
@@ -83,12 +103,12 @@ public class TradeServlet extends HttpServlet {
                     } else {
                         iPos = c.prepareStatement("INSERT INTO positions(user_id, event_id, event_name, qty, total_cost_usd, min_price_usd, max_price_usd) VALUES(?,?,?,?,?,?,?)");
                         iPos.setLong(1, userId);
-                        iPos.setLong(2, eventId);
+                        iPos.setString(2, eventId);
                         iPos.setString(3, eventName);
                         iPos.setInt(4, qty);
                         iPos.setBigDecimal(5, tradeValue);
-                        iPos.setBigDecimal(6, priceUsd);
-                        iPos.setBigDecimal(7, priceUsd);
+                        iPos.setBigDecimal(6, buyPrice);
+                        iPos.setBigDecimal(7, sellPrice);
                         iPos.executeUpdate();
                     }
 
@@ -98,9 +118,9 @@ public class TradeServlet extends HttpServlet {
                     uCash.executeUpdate();
 
                 } else { // SELL
-                    qPos = c.prepareStatement("SELECT id, qty, total_cost_usd FROM positions WHERE user_id=? AND event_id=? FOR UPDATE");
+                    qPos = c.prepareStatement("SELECT id, qty, total_cost_usd, min_price_usd, max_price_usd FROM positions WHERE user_id=? AND event_id=? FOR UPDATE");
                     qPos.setLong(1, userId);
-                    qPos.setLong(2, eventId);
+                    qPos.setString(2, eventId);
                     rs = qPos.executeQuery();
                     if (!rs.next()) {
                         write(resp, new JsonResp(false, "No position to sell"));
@@ -110,6 +130,8 @@ public class TradeServlet extends HttpServlet {
                     long pid = rs.getLong(1);
                     int oldQty = rs.getInt(2);
                     BigDecimal oldCost = rs.getBigDecimal(3);
+                    BigDecimal minP = rs.getBigDecimal(4);
+                    BigDecimal maxP = rs.getBigDecimal(5);
                     rs.close();
 
                     if (qty > oldQty) {
@@ -128,10 +150,12 @@ public class TradeServlet extends HttpServlet {
                         uPos.setLong(1, pid);
                         uPos.executeUpdate();
                     } else {
-                        uPos = c.prepareStatement("UPDATE positions SET qty=?, total_cost_usd=? WHERE id=?");
+                        uPos = c.prepareStatement("UPDATE positions SET qty=?, total_cost_usd=?, min_price_usd=?, max_price_usd=? WHERE id=?");
                         uPos.setInt(1, newQty);
                         uPos.setBigDecimal(2, newCost);
-                        uPos.setLong(3, pid);
+                        uPos.setBigDecimal(3, minP);
+                        uPos.setBigDecimal(4, maxP);
+                        uPos.setLong(5, pid);
                         uPos.executeUpdate();
                     }
 
@@ -162,6 +186,14 @@ public class TradeServlet extends HttpServlet {
     }
 
     private void write(HttpServletResponse resp, JsonResp jr) throws IOException {
-        try (PrintWriter out = resp.getWriter()) { out.write(gson.toJson(jr)); }
+        try (PrintWriter out = resp.getWriter()) { out.write(jr.toJson()); }
+    }
+
+    private int parseInt(String raw) {
+        try { return Integer.parseInt(raw); } catch (Exception e) { return 0; }
+    }
+
+    private BigDecimal parseDecimal(String raw) {
+        try { return raw == null ? null : new BigDecimal(raw); } catch (Exception e) { return null; }
     }
 }

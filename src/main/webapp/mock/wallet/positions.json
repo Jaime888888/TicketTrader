@@ -1,0 +1,18 @@
+[
+  {
+    "eventId":"E1",
+    "eventName":"Mock Concert Alpha",
+    "qty":2,
+    "totalCostUsd":120,
+    "minPriceUsd":60,
+    "maxPriceUsd":75
+  },
+  {
+    "eventId":"E2",
+    "eventName":"Mock Concert Beta",
+    "qty":3,
+    "totalCostUsd":180,
+    "minPriceUsd":50,
+    "maxPriceUsd":65
+  }
+]
