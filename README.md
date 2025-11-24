@@ -18,6 +18,7 @@
 
 ## Deployment tips
 - Ensure your build copies compiled classes into the exploded webapp (Tomcat needs `.class` files under `WEB-INF/classes`).
+- Compiled servlet classes are checked in under `src/main/webapp/WEB-INF/classes` so Tomcat can load them even if Eclipse skips copying compiled outputs. If you need to rebuild locally without the servlet API jar, use the stub sources in `build-support/stubs` to satisfy `javac` during compilation.
 - Update `db/JDBCConnector.java` if your MySQL host, schema name, or credentials differ from the defaults. It now auto-loads the
   MySQL driver, creates the `ticket_trader` database if missing, and will lay down the core tables/triggers on first use so
   fresh environments can start without running SQL manually.
