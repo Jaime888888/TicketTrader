@@ -3,16 +3,17 @@
 <head>
   <meta charset="utf-8">
   <title>Favorites</title>
-  <link rel="stylesheet" href="favorites.css">
-  <script defer src="favorites.js"></script>
+  <link rel="stylesheet" href="favorites.css?v=1.0.2">
+  <script src="common.js?v=1.0.2"></script>
+  <script defer src="favorites.js?v=1.0.2"></script>
 </head>
 <body>
   <nav id="nav"></nav>
   <main>
     <h1>Favorites</h1>
-    <div id="list" class="cards"></div>
-    <div id="empty" class="muted"></div>
+    <p class="muted">Saved events you can revisit or trade.</p>
+    <div id="favorites"></div>
+    <div id="fav-detail" class="fav-detail" style="display:none;"></div>
   </main>
-  <script src="common.js"></script>
 </body>
 </html>
