@@ -11,7 +11,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const cashEl = document.getElementById('cash');
   const totalEl = document.getElementById('total');
   const tbody = document.querySelector('tbody');
-  let state = { cashUsd: 2000, positions: [] };
+  const startingCash = typeof STARTING_CASH !== 'undefined' ? STARTING_CASH : 3000;
+  let state = { cashUsd: startingCash, positions: [] };
 
   async function load(forceRemote = false) {
     try {
