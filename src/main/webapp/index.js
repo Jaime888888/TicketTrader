@@ -373,6 +373,7 @@
         const nowFav = Favorites.isFavorite && Favorites.isFavorite(eventId);
         favBtn.textContent = nowFav ? "★" : "☆";
         favBtn.title = nowFav ? "Remove from favorites" : "Add to favorites";
+        alert(nowFav ? "Added to favorites" : "Removed from favorites");
         return updated;
       });
 

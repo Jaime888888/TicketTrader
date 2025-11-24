@@ -97,6 +97,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           : { success: false, message: 'Trading unavailable' };
         if (!result.success) return alert(result.message || 'Trade failed');
         state = result.state || state;
+        alert(`${side === 'BUY' ? 'Purchased' : 'Sold'} ${q} ticket(s) for ${pos.eventName || pos.eventId}`);
         render();
       };
 
