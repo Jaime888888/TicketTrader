@@ -212,11 +212,8 @@
         } catch (err) {
           const detail = fallbackDetail(fav);
           renderDetail({ ...fav, minPriceUsd: fav.minPriceUsd ?? detail.price.min, maxPriceUsd: fav.maxPriceUsd ?? detail.price.max }, detail);
-          if (detailPanel) {
-            const msg = document.createElement('div');
-            msg.className = 'muted';
-            msg.textContent = err.message || 'Showing saved info because the Ticketmaster detail call failed.';
-            detailPanel.appendChild(msg);
+          if (console && console.warn) {
+            console.warn('Detail fallback for favorite', fav.eventId, err);
           }
         }
       });
