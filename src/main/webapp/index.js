@@ -369,7 +369,7 @@
           maxPriceUsd: priceObj.max,
           url,
         };
-        const updated = Favorites.toggleFavorite ? Favorites.toggleFavorite(payload) : [];
+        const updated = Favorites.toggleFavorite ? await Favorites.toggleFavorite(payload) : [];
         const nowFav = Favorites.isFavorite && Favorites.isFavorite(eventId);
         favBtn.textContent = nowFav ? "★" : "☆";
         favBtn.title = nowFav ? "Remove from favorites" : "Add to favorites";
