@@ -251,12 +251,6 @@
       const date = fmtDate(e.date ?? e.localDate ?? e.startDate ?? "");
       const venue = e.venue ?? e.venueName ?? "";
       const img = e.image ?? e.pic ?? (Array.isArray(e.images) ? e.images[0] : e.images || "");
-      const minP = e.minPrice ?? e.priceMin ?? e.low ?? 100;
-      const maxP = e.maxPrice ?? e.priceMax ?? e.high ?? minP;
-      const ticketUrl = e.url ?? e.ticketUrl ?? "#";
-      const priceUsd = Number(minP || maxP) || 100;
-      const favPayload = { eventId: id, eventName: name, date, venue, minPriceUsd: minP, maxPriceUsd: maxP, image: img, url: ticketUrl };
-      const favbed = Favorites.isFavorite && Favorites.isFavorite(id);
 
       const tr = document.createElement("tr");
 
@@ -274,63 +268,9 @@
       }
 
       const tdEvent = document.createElement("td");
-      const star = document.createElement("button");
-      star.textContent = favbed ? "★" : "☆";
-      star.title = favbed ? "Remove from favorites" : "Add to favorites";
-      star.style.marginRight = "6px";
-      star.addEventListener("click", async (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        if (!API.loggedIn) {
-          alert("Please log in to save favorites");
-          window.location.href = "login.html";
-          return;
-        }
-        try {
-          if (Favorites.toggleFavorite) {
-            await Favorites.toggleFavorite(favPayload);
-          }
-          const nowFav = Favorites.isFavorite && Favorites.isFavorite(id);
-          star.textContent = nowFav ? "★" : "☆";
-          star.title = nowFav ? "Remove from favorites" : "Add to favorites";
-        } catch (e) {
-          alert(e.message || "Favorite update failed");
-        }
-      });
-      tdEvent.appendChild(star);
-
-      const a = document.createElement("a");
-      a.href = ticketUrl;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      a.textContent = name;
-      tdEvent.appendChild(a);
-
-      // details / buy
-      const details = document.createElement("div");
-      details.style.fontSize = "12px";
-      details.textContent = `${venue ? venue + " — " : ""}Price range: ${minP || "?"} - ${maxP || "?"}  `;
-      const qty = document.createElement("input");
-      qty.type = "number";
-      qty.min = "1";
-      qty.value = "1";
-      qty.style.width = "60px";
-      qty.style.marginLeft = "8px";
-      const buyBtn = document.createElement("button");
-      buyBtn.textContent = "BUY";
-      buyBtn.style.marginLeft = "8px";
-      buyBtn.addEventListener("click", () => {
-        if (!API.loggedIn) {
-          alert("Please log in to trade");
-          window.location.href = "login.html";
-          return;
-        }
-        buyTickets(id, name, qty, priceUsd || 1);
-      });
-      details.appendChild(qty);
-      details.appendChild(buyBtn);
-      tdEvent.appendChild(document.createElement("br"));
-      tdEvent.appendChild(details);
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = name;
+      tdEvent.appendChild(nameSpan);
 
       const tdVenue = document.createElement("td");
       tdVenue.textContent = venue;
