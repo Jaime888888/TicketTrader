@@ -39,12 +39,13 @@ public class LoginServlet extends HttpServlet {
                 return;
             }
 
-            DemoUser.ensure(new BigDecimal("2000.00"));
+            DemoUser.ensure(DemoUser.DEFAULT_CASH);
             UserRecord user = findUser(payload.username);
             if (user == null) {
                 write(resp, JsonResp.error("User not found"));
                 return;
             }
+            DemoUser.seedWallet(user.id, DemoUser.DEFAULT_CASH);
             String hashed = hash(payload.password);
             if (!hashed.equals(user.passwordHash)) {
                 write(resp, JsonResp.error("Invalid credentials"));

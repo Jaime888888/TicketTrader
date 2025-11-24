@@ -85,7 +85,7 @@ public final class JDBCConnector {
 
             s.executeUpdate("CREATE TABLE IF NOT EXISTS wallet (" +
                     "user_id BIGINT UNSIGNED NOT NULL," +
-                    "cash_usd DECIMAL(10,2) NOT NULL DEFAULT 2000.00," +
+                    "cash_usd DECIMAL(10,2) NOT NULL DEFAULT 3000.00," +
                     "PRIMARY KEY (user_id)," +
                     "CONSTRAINT fk_wallet_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE" +
                     ") ENGINE=InnoDB");
@@ -114,7 +114,7 @@ public final class JDBCConnector {
 
             s.executeUpdate("DROP TRIGGER IF EXISTS trg_users_after_insert");
             s.executeUpdate("CREATE TRIGGER trg_users_after_insert AFTER INSERT ON users " +
-                    "FOR EACH ROW BEGIN INSERT INTO wallet(user_id, cash_usd) VALUES (NEW.id, 2000.00); END");
+                    "FOR EACH ROW BEGIN INSERT INTO wallet(user_id, cash_usd) VALUES (NEW.id, 3000.00); END");
         }
 
         schemaEnsured = true;

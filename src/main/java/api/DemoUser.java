@@ -7,6 +7,7 @@ import java.sql.*;
 /** Ensures a default demo user and wallet exist so the app works without signup. */
 public final class DemoUser {
     public static final long ID = 1L;
+    public static final java.math.BigDecimal DEFAULT_CASH = new java.math.BigDecimal("3000.00");
     private static final String USERNAME = "demo";
     private static final String EMAIL = "demo@example.com";
     private static final String PASS_HASH = HashUtil.sha256("demo123");
@@ -18,6 +19,7 @@ public final class DemoUser {
      * user. Returns the demo user id.
      */
     public static long ensure(BigDecimal startingCash) throws SQLException {
+        if (startingCash == null) startingCash = DEFAULT_CASH;
         Connection c = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -86,13 +88,33 @@ public final class DemoUser {
         try {
             ps = c.prepareStatement(
                 "INSERT INTO wallet(user_id, cash_usd) VALUES(?, ?) " +
-                "ON DUPLICATE KEY UPDATE cash_usd = cash_usd"
+                "ON DUPLICATE KEY UPDATE cash_usd = GREATEST(cash_usd, VALUES(cash_usd))"
             );
             ps.setLong(1, ID);
             ps.setBigDecimal(2, startingCash);
             ps.executeUpdate();
         } finally {
             JDBCConnector.closeQuiet(ps);
+        }
+    }
+
+    /** Ensure a wallet exists for arbitrary user ids with at least the starting cash. */
+    public static void seedWallet(long userId, BigDecimal startingCash) throws SQLException {
+        if (startingCash == null) startingCash = DEFAULT_CASH;
+        Connection c = null;
+        PreparedStatement ps = null;
+        try {
+            c = JDBCConnector.get();
+            ps = c.prepareStatement(
+                "INSERT INTO wallet(user_id, cash_usd) VALUES(?, ?) " +
+                "ON DUPLICATE KEY UPDATE cash_usd = GREATEST(cash_usd, VALUES(cash_usd))"
+            );
+            ps.setLong(1, userId);
+            ps.setBigDecimal(2, startingCash);
+            ps.executeUpdate();
+        } finally {
+            JDBCConnector.closeQuiet(ps);
+            JDBCConnector.closeQuiet(c);
         }
     }
 }
