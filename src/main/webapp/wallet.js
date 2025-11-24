@@ -44,10 +44,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         <tr>
           <th>Event</th>
           <th>Quantity</th>
-          <th>Change</th>
           <th>Avg Cost</th>
-          <th>Total Cost</th>
+          <th>Change</th>
           <th>Current Price</th>
+          <th>Total Cost</th>
           <th>Market Value</th>
           <th>Trade</th>
         </tr>
@@ -72,10 +72,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       row.innerHTML = `
         <td>${pos.eventName || pos.eventId}</td>
         <td class="right">${qtyNum}</td>
-        <td class="right">${fmt(change)}</td>
         <td class="right">${fmt(avgNum)}</td>
-        <td class="right">${fmt(totalCost)}</td>
+        <td class="right">${fmt(change)}</td>
         <td class="right">${fmt(current)}</td>
+        <td class="right">${fmt(totalCost)}</td>
         <td class="right">${fmt(mvNum)}</td>
         <td class="trade-cell">
           <div class="trade-row">
