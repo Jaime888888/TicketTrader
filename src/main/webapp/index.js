@@ -133,11 +133,23 @@
   }
 
   async function fetchDetail(eventId) {
-    const url = `${TM_PROXY}/eventDetail?eventId=${encodeURIComponent(eventId)}`;
-    const res = await fetch(url, { method: "GET" });
-    const json = await safeJson(res, url);
-    if (!res.ok) throw new Error(json.message || `Detail failed (${res.status})`);
-    return json;
+    const urls = [
+      `${TM_PROXY}/eventDetail/${encodeURIComponent(eventId)}`,
+      `${TM_PROXY}/eventDetail?eventId=${encodeURIComponent(eventId)}`,
+    ];
+
+    let lastErr = null;
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { method: "GET" });
+        const json = await safeJson(res, url);
+        if (!res.ok) throw new Error(json.message || `Detail failed (${res.status})`);
+        return json;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw lastErr || new Error("Detail failed");
   }
 
   async function search() {
