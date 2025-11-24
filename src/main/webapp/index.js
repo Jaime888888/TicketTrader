@@ -174,7 +174,15 @@
   }
 
   function renderEvents(events, emptyMessage = "No results") {
-    const tbody = $("#results-body") || $("#results tbody");
+    const table = $("#results");
+    if (table) {
+      const thead = table.querySelector("thead");
+      if (thead) {
+        thead.innerHTML = `<tr><th>Date</th><th>Pic</th><th>Event</th><th>Venue</th></tr>`;
+      }
+    }
+
+    const tbody = $("#results-body") || (table && table.querySelector("tbody"));
     if (!tbody) return;
 
     tbody.innerHTML = "";
