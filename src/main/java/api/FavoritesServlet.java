@@ -19,12 +19,8 @@ public class FavoritesServlet extends HttpServlet {
             throws ServletException, IOException {
         resp.setContentType("application/json;charset=UTF-8");
 
-        String userIdParam = req.getParameter("userId");
-        long userId;
+        long userId = parseUserId(req.getParameter("userId"));
         try {
-            userId = (userIdParam == null || userIdParam.isEmpty())
-                    ? DemoUser.ensure(DemoUser.DEFAULT_CASH)
-                    : Long.parseLong(userIdParam);
             DemoUser.seedWallet(userId, DemoUser.DEFAULT_CASH);
         } catch (Exception e) {
             write(resp, JsonResp.error("Unable to prepare demo user: " + e.getMessage()));
@@ -76,11 +72,8 @@ public class FavoritesServlet extends HttpServlet {
                 return;
             }
 
-            long userId;
+            long userId = parseUserId(body.get("userId"));
             try {
-                userId = body.containsKey("userId") && body.get("userId") != null && !body.get("userId").isEmpty()
-                        ? Long.parseLong(body.get("userId"))
-                        : DemoUser.ensure(DemoUser.DEFAULT_CASH);
                 DemoUser.seedWallet(userId, DemoUser.DEFAULT_CASH);
             } catch (Exception e) {
                 write(resp, JsonResp.error("Unable to prepare demo user: " + e.getMessage()));
@@ -134,6 +127,15 @@ public class FavoritesServlet extends HttpServlet {
 
     private void write(HttpServletResponse resp, JsonResp jr) throws IOException {
         try (PrintWriter out = resp.getWriter()) { out.write(jr.toJson()); }
+    }
+
+    private long parseUserId(String raw) {
+        try {
+            if (raw != null && !raw.isEmpty()) {
+                return Long.parseLong(raw);
+            }
+        } catch (Exception ignore) { /* fall through to demo user */ }
+        return DemoUser.ensureSafe(DemoUser.DEFAULT_CASH);
     }
 
     private BigDecimal parseDecimal(String raw) {

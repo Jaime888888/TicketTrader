@@ -9,3 +9,8 @@ main { max-width: 900px; margin: 0 auto; }
 .fav-meta { color: #444; margin-bottom: 4px; }
 .fav-actions { margin-top: 8px; display: flex; gap: 8px; align-items: center; }
 .fav-actions button { padding: 4px 10px; }
+
+.fav-detail { margin-top: 16px; border: 1px solid #ddd; padding: 12px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.fav-detail .detail-row { margin: 4px 0; }
+.fav-detail a { color: #1a73e8; text-decoration: none; }
+.fav-detail .trade { margin-top: 8px; display: flex; gap: 8px; align-items: center; }
