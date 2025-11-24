@@ -3,6 +3,13 @@
 <head>
   <meta charset="utf-8">
   <title>TicketTrader</title>
+  <style>
+    /* Hide any lingering fifth column (e.g., Event ID) so only Date/Pic/Event/Venue remain visible */
+    #results th:nth-child(5),
+    #results td:nth-child(5) {
+      display: none;
+    }
+  </style>
   <link rel="stylesheet" href="index.css">
   <script src="common.js"></script>
   <script defer src="index.js"></script>
