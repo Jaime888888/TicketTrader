@@ -1,7 +1,7 @@
 /* global API, renderNav, FavoritesState, WalletState, sanitizeProxyBase */
-document.addEventListener('DOMContentLoaded', async () => {
-  renderNav();
-  const container = document.getElementById('favorites');
+(function () {
+  document.addEventListener('DOMContentLoaded', async () => {
+    renderNav();
 
   const container = document.getElementById('favorites');
   const detailPanel = document.getElementById('fav-detail');
@@ -204,4 +204,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   render();
-});
+  });
+})();
