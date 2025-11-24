@@ -173,8 +173,69 @@
     }
   }
 
+  function enforceFourColumns(table) {
+    if (!table) return;
+    const labels = ["Date", "Pic", "Event", "Venue"];
+    const headerRow = table.querySelector("thead tr");
+    if (headerRow) {
+      // Drop any extra columns (including a lingering Event ID) so only four remain.
+      while (headerRow.cells.length > 4) headerRow.deleteCell(0);
+      labels.forEach((txt, idx) => {
+        if (!headerRow.cells[idx]) {
+          const th = document.createElement("th");
+          headerRow.appendChild(th);
+        }
+        headerRow.cells[idx].textContent = txt;
+      });
+    }
+
+    const body = table.tBodies && table.tBodies[0];
+    if (body) {
+      Array.from(body.rows).forEach((row) => {
+        while (row.cells.length > 4) row.deleteCell(0);
+      });
+    }
+  }
+
+  function stripEventIdColumns(table) {
+    if (!table) return;
+    const headerRow = table.querySelector("thead tr");
+    if (headerRow) {
+      Array.from(headerRow.cells).forEach((cell, idx) => {
+        const txt = (cell.textContent || "").trim().toLowerCase();
+        if (txt === "event id" || txt === "eventid") {
+          headerRow.deleteCell(idx);
+        }
+      });
+    }
+
+    const body = table.tBodies && table.tBodies[0];
+    if (body) {
+      Array.from(body.rows).forEach((row) => {
+        Array.from(row.cells).forEach((cell, idx) => {
+          const txt = (cell.textContent || "").trim().toLowerCase();
+          if (txt === "event id" || txt === "eventid") {
+            row.deleteCell(idx);
+          }
+        });
+      });
+    }
+  }
+
   function renderEvents(events, emptyMessage = "No results") {
-    const tbody = $("#results-body") || $("#results tbody");
+    const table = $("#results");
+    if (table) {
+      // Rebuild the header/body each render to guarantee a four-column layout and
+      // avoid any lingering Event ID columns from prior markup.
+      table.innerHTML = `
+        <thead><tr><th>Date</th><th>Pic</th><th>Event</th><th>Venue</th></tr></thead>
+        <tbody id="results-body"></tbody>
+      `;
+    }
+
+    const tbody = table && table.querySelector("tbody");
+    stripEventIdColumns(table);
+    enforceFourColumns(table);
     if (!tbody) return;
 
     tbody.innerHTML = "";
@@ -403,6 +464,7 @@
     if (!$("#results-body") && !$("#results tbody")) {
       // create a table if the html didn't have one
       const tbl = document.createElement("table");
+      tbl.id = "results";
       tbl.style.width = "100%";
       tbl.innerHTML = `
         <thead>
@@ -412,6 +474,10 @@
       `;
       document.body.appendChild(tbl);
     }
+
+    const table = $("#results");
+    stripEventIdColumns(table);
+    enforceFourColumns(table);
 
     const authCallout = document.getElementById("authCallout");
     if (authCallout) {

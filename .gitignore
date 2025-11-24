@@ -1,7 +1,6 @@
 # Build outputs
 build/
 target/
-*.class
 
 # IDE/local metadata
 .idea/
@@ -12,5 +11,6 @@ target/
 bin/
 .settings/
 
-# Application deployment copies
+# Compiled classes and deployment copies
+*.class
 src/main/webapp/WEB-INF/classes/
