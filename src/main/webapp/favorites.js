@@ -15,6 +15,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const TM_PROXY_ROOT = ((API && API.proxyBase) || (typeof sanitizeProxyBase === 'function' ? sanitizeProxyBase() : 'https://us-central1-quixotic-dynamo-165616.cloudfunctions.net')).replace(/\/+$/, '');
   const TM_PROXY = `${TM_PROXY_ROOT}/getEvents`;
 
+  let latestFavorites = [];
+
   const safeJson = async (res, urlHint = '') => {
     const text = await res.text();
     try {
@@ -108,14 +110,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (FavoritesState && FavoritesState.syncFavorites) {
     try {
-      await FavoritesState.syncFavorites();
+      latestFavorites = await FavoritesState.syncFavorites();
     } catch (e) {
       alert(e.message || 'Favorites failed to load');
+      latestFavorites = [];
     }
   }
 
   function render() {
-    const favs = (FavoritesState && FavoritesState.loadFavorites && FavoritesState.loadFavorites()) || [];
+    const favs = latestFavorites && latestFavorites.length
+      ? latestFavorites
+      : (FavoritesState && FavoritesState.loadFavorites && FavoritesState.loadFavorites()) || [];
     container.innerHTML = '';
     if (detailPanel) { detailPanel.style.display = 'none'; detailPanel.innerHTML = ''; }
 
@@ -157,6 +162,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (FavoritesState && FavoritesState.toggleFavorite) {
             await FavoritesState.toggleFavorite({ ...fav });
           }
+          latestFavorites = FavoritesState && FavoritesState.loadFavorites ? FavoritesState.loadFavorites() : [];
           alert('Removed from favorites');
           render();
         } catch (err) {
