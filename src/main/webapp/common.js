@@ -422,6 +422,13 @@ async function toggleFavoriteRemote(fav){
   let json = {};
   try { json = JSON.parse(text || '{}'); } catch (e) { throw new Error(`Favorites parse error: ${text?.slice(0,150)}`); }
   if (!res.ok || !json.success) throw new Error(json.message || `Favorites update failed (${res.status})`);
+  // Re-sync from the server so the favorites page always reflects the
+  // database state (prevents stale local copies from hiding saves).
+  try {
+    await syncFavoritesFromServer();
+  } catch (syncErr) {
+    console.warn('Favorites re-sync failed', syncErr);
+  }
   return removing ? removeFavorite(fav.eventId) : upsertFavorite(fav);
 }
 
