@@ -104,7 +104,12 @@
 
   // ---------- buy ----------
   async function buyTickets(eventId, eventName, qtyInput, minPriceUsd, maxPriceUsd) {
-    const qty = parseInt(qtyInput.value || "1", 10);
+    const rawQty = (qtyInput.value || "").trim();
+    if (!rawQty) {
+      alert("Quantity is required");
+      return;
+    }
+    const qty = parseInt(rawQty, 10);
     if (!Number.isFinite(qty) || qty <= 0) {
       alert("Quantity must be a positive number");
       return;
