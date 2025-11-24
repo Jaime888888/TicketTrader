@@ -39,11 +39,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     for (const pos of (state.positions || [])) {
       const qtyNum = Number(pos.qty || 0);
-      const avgNum = pos.totalCostUsd && qtyNum ? (Number(pos.totalCostUsd) / qtyNum) : 0;
+      const totalCost = Number(pos.totalCostUsd || 0);
+      const avgNum = qtyNum ? (totalCost / qtyNum) : 0;
       const minP = Number(pos.minPriceUsd || pos.maxPriceUsd || 0);
       const maxP = Number(pos.maxPriceUsd || pos.minPriceUsd || 0);
       const change = maxP - minP;
-      const totalCost = Number(pos.totalCostUsd || 0);
       const mvNum  = maxP * qtyNum;
       sum += Number(mvNum);
 
@@ -56,8 +56,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         <td>${qtyNum}</td>
         <td>${fmt(change)}</td>
         <td>${fmt(avgNum)}</td>
-        <td>${fmt(maxPrice)}</td>
         <td>${fmt(totalCost)}</td>
+        <td>${fmt(maxPrice)}</td>
         <td>${fmt(mvNum)}</td>
         <td>
           <input id="${qid}" type="number" min="1" value="1" style="width:80px"/>
