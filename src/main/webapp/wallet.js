@@ -1,85 +1,120 @@
 /* global API, renderNav */
 document.addEventListener('DOMContentLoaded', async () => {
   renderNav();
-  if (!API.loggedIn()) { location.href = 'login.html'; return; }
 
-  const cash = document.getElementById('cash');
-  const total = document.getElementById('total');
-  const tbody = document.querySelector('tbody');
+  if (!API.loggedIn) {
+    const main = document.querySelector('main') || document.body;
+    main.innerHTML = '<div class="muted">Please log in to view your wallet.</div>';
+    return;
+  }
 
-  async function load() {
+  const cashEl = document.getElementById('cash');
+  const totalEl = document.getElementById('total');
+  const cards = document.getElementById('positions');
+  const startingCash = typeof STARTING_CASH !== 'undefined' ? STARTING_CASH : 3000;
+  let state = { cashUsd: startingCash, positions: [] };
+
+  async function load(forceRemote = false) {
     try {
-      // --- Cash ---
-      const r1 = await fetch(`wallet?type=cash&userId=${API.userId}`);
-      const j1 = await r1.json();
-      if (!j1.success) throw new Error(j1.message || 'Cash fetch failed');
-      const balance = Number(j1.data?.cashUsd ?? 0);
-      cash.textContent = 'Cash: $' + balance.toFixed(2);
-
-      // --- Positions ---
-      const r2 = await fetch(`wallet?type=positions&userId=${API.userId}`);
-      const j2 = await r2.json();
-      if (!j2.success) throw new Error(j2.message || 'Positions fetch failed');
-
-      tbody.innerHTML = '';
-      let sum = 0;
-
-      for (const p of (j2.data || [])) {
-        const avg = p.totalCostUsd && p.qty ? (Number(p.totalCostUsd) / Number(p.qty)).toFixed(2) : '0.00';
-        const mv  = (Number(p.maxPriceUsd || 0) * Number(p.qty || 0)).toFixed(2);
-        sum += Number(mv);
-
-        const tr = document.createElement('tr');
-        const qid = (Math.random().toString(36).slice(2));
-        tr.innerHTML = `
-          <td>${p.eventName || p.eventId}</td>
-          <td>${p.qty}</td>
-          <td>$${avg}</td>
-          <td>$${(p.maxPriceUsd ?? 0)}</td>
-          <td>$${mv}</td>
-          <td>
-            <input id="${qid}" type="number" min="1" value="1" style="width:80px"/>
-            <button class="buy">BUY</button>
-            <button class="sell">SELL</button>
-          </td>
-        `;
-
-        tr.querySelector('.buy').onclick = async () => {
-          const q = Number(document.getElementById(qid).value || 0);
-          const r = await fetch('trade', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ userId: API.userId, posId: p.id, qty: q })
-          });
-          const j = await r.json();
-          alert(j.message || 'Done');
-          load();
-        };
-
-        tr.querySelector('.sell').onclick = async () => {
-          const q = Number(document.getElementById(qid).value || 0);
-          const r = await fetch('trade', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ userId: API.userId, posId: p.id, qty: -q })
-          });
-          const j = await r.json();
-          alert(j.message || 'Done');
-          load();
-        };
-
-        tbody.appendChild(tr);
+      if (forceRemote && window.WalletState && window.WalletState.fetchRemote) {
+        state = await window.WalletState.fetchRemote();
       }
-
-      total.textContent = 'Total Account Value: $' + (sum + balance).toFixed(2);
+      render();
     } catch (e) {
       console.error(e);
-      // Keep the page usable; show a friendly message instead of crashing on HTML 500 pages.
-      tbody.innerHTML = '';
-      total.textContent = '';
+      if (cards) cards.innerHTML = '<div class="muted">Wallet failed to load: ' + (e.message || 'unknown error') + '</div>';
+      if (totalEl) totalEl.textContent = '';
       alert(e.message || 'Wallet error');
     }
   }
 
-  load();
+  function fmt(val){
+    const num = Number(val || 0);
+    return `$${num.toFixed(2)}`;
+  }
+
+  function render(){
+    if (cards) cards.innerHTML = '';
+    let sum = 0;
+
+    const table = document.createElement('table');
+    table.className = 'wallet-table';
+    table.innerHTML = `
+      <thead>
+        <tr>
+          <th>Event</th>
+          <th>Quantity</th>
+          <th>Avg Cost</th>
+          <th>Change</th>
+          <th>Current Price</th>
+          <th>Total Cost</th>
+          <th>Market Value</th>
+          <th>Trade</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+    const tbody = table.querySelector('tbody');
+
+    for (const pos of (state.positions || [])) {
+      const qtyNum = Number(pos.qty || 0);
+      const totalCost = Number(pos.totalCostUsd ?? pos.totalCost ?? 0);
+      const avgNum = qtyNum ? (totalCost / qtyNum) : 0;
+      const minP = Number(pos.minPriceUsd ?? pos.minPrice ?? pos.maxPriceUsd ?? 0);
+      const maxP = Number(pos.maxPriceUsd ?? pos.maxPrice ?? pos.minPriceUsd ?? 0);
+      const change = maxP - minP;
+      const current = maxP;
+      const mvNum  = current * qtyNum;
+      sum += Number(mvNum);
+
+      const qid = (Math.random().toString(36).slice(2));
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${pos.eventName || pos.eventId}</td>
+        <td class="right">${qtyNum}</td>
+        <td class="right">${fmt(avgNum)}</td>
+        <td class="right">${fmt(change)}</td>
+        <td class="right">${fmt(current)}</td>
+        <td class="right">${fmt(totalCost)}</td>
+        <td class="right">${fmt(mvNum)}</td>
+        <td class="trade-cell">
+          <div class="trade-row">
+            <input id="${qid}" type="number" min="1" value="1" />
+            <label><input type="radio" name="side-${qid}" value="BUY" checked/> BUY</label>
+            <label><input type="radio" name="side-${qid}" value="SELL"/> SELL</label>
+            <button class="trade">Submit</button>
+          </div>
+        </td>
+      `;
+
+      row.querySelector('.trade').onclick = async () => {
+        const q = Number(document.getElementById(qid).value || 0);
+        const side = (row.querySelector(`input[name="side-${qid}"]:checked`) || {}).value || 'BUY';
+        const minPrice = minP || current;
+        const maxPrice = maxP || minPrice || current;
+        const result = window.WalletState && window.WalletState.tradeRemote
+          ? await window.WalletState.tradeRemote({ side, eventId: pos.eventId, eventName: pos.eventName, qty: q, priceUsd: side === 'BUY' ? minPrice : maxPrice, minPriceUsd: minPrice, maxPriceUsd: maxPrice })
+          : { success: false, message: 'Trading unavailable' };
+        if (!result.success) return alert(result.message || 'Trade failed');
+        state = result.state || state;
+        alert(`${side === 'BUY' ? 'Purchased' : 'Sold'} ${q} ticket(s) for ${pos.eventName || pos.eventId}`);
+        render();
+      };
+
+      tbody.appendChild(row);
+    }
+
+    if (tbody.children.length === 0) {
+      const empty = document.createElement('tr');
+      empty.innerHTML = '<td colspan="8" class="muted">No holdings yet.</td>';
+      tbody.appendChild(empty);
+    }
+
+    if (cards) cards.appendChild(table);
+
+    if (totalEl) totalEl.textContent = 'Total Account Value: ' + fmt(sum + state.cashUsd);
+    if (cashEl) cashEl.textContent = 'Cash Balance: ' + fmt(state.cashUsd);
+  }
+
+  await load(true);
 });
