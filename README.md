@@ -1,26 +1,132 @@
-# TicketTrader Quick Notes
+# TicketTrader
 
-## What changed for the demo flow
-- The login/sign-up page (`login.html`) now talks to MySQL-backed servlets (`/login` and `/register`). A demo account (`demo` / `demo123`) is seeded in the database for quick access; if MySQL is offline the calls will surface errors instead of silently falling back.
-- If the servlet endpoints are unreachable (404/500), the browser shows an error instead of persisting accounts locally so you can quickly spot misconfigured servlet paths.
-- Authenticated users now read/write favorites and wallet balances through the database-backed `/favorites`, `/wallet`, and `/trade` servlets; if those endpoints fail, the UI surfaces the error instead of silently falling back to local storage. The starting balance remains **$2,000**.
-- Navigation adapts between **Home**, **Favorites**, **Wallet**, and **Login/Logout** depending on whether you're signed in.
+A full-stack event marketplace where users can discover live events, save favorites, and simulate ticket trading through a persistent wallet. TicketTrader combines a browser-based interface, Jakarta servlets, Ticketmaster-backed search, and a MySQL data model.
+
+## Highlights
+
+- Search events by keyword and city
+- View event details and available price ranges
+- Register and sign in with database-backed accounts
+- Save and remove favorite events
+- Buy and sell positions through a persistent wallet
+- Track cash, quantity, average cost, and estimated market value
+- Surface backend and configuration failures instead of silently hiding them
+
+## Architecture
+
+```mermaid
+flowchart LR
+    UI[HTML, CSS, JavaScript] -->|HTTP / JSON| API[Jakarta Servlets]
+    API --> AUTH[Authentication]
+    API --> EVENTS[Ticketmaster proxy]
+    API --> DB[(MySQL)]
+    DB --> DATA[Users, favorites, wallet, positions]
+```
+
+## Technology
+
+| Layer | Technology |
+| --- | --- |
+| Frontend | HTML, CSS, JavaScript |
+| Backend | Java, Jakarta Servlet API |
+| Database | MySQL, JDBC |
+| Server | Apache Tomcat |
+| External data | Ticketmaster-compatible search and event-detail endpoints |
+
+## Main workflows
+
+### Event discovery
+
+The home page calls `/search` with a keyword and city, displays matching events, and loads additional information through `/eventDetail/{id}`. Events without a usable price range remain viewable but cannot be traded.
+
+### Authentication and favorites
+
+`/register` and `/login` create and validate users. Signed-in users can persist favorites through `/favorites`; the navigation adapts to the current authentication state.
+
+### Wallet and trading
+
+Every user receives a starting balance. `/trade` processes buy and sell requests, while `/wallet` returns cash, positions, average cost, and current valuation data.
+
+## API surface
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /register` | Create an account |
+| `POST /login` | Authenticate a user |
+| `GET /search` | Search available events |
+| `GET /eventDetail/{id}` | Load event details |
+| `GET/POST/DELETE /favorites` | Manage saved events |
+| `GET /wallet` | Load balances and positions |
+| `POST /trade` | Execute a simulated buy or sell |
+
+## Data model
+
+- `users` stores account identities and password hashes.
+- `favorites` associates saved Ticketmaster events with a user.
+- `wallet` stores the user's available cash.
+- `positions` stores ticket quantity, total cost, latest prices, and timestamps.
+- `v_positions` calculates average cost and market value for reporting.
+
+See [`setup.sql`](./setup.sql) for the complete schema.
 
 ## Project layout
-- **Backend (Java servlets)** under `src/main/java`, including helpers like `JsonResp`, `DemoUser`, and `JDBCConnector` plus the core servlets (`SearchServlet`, `TradeServlet`, `WalletServlet`, `LoginServlet`, `RegisterServlet`, `FavoritesServlet`).
-- **Frontend assets** under `src/main/webapp` with page scripts such as `index.js` (search/buy), `wallet.js` (balances + trades), and the shared helper `common.js` that seeds the demo user and builds API paths.
-- **Database schema** in `setup.sql`, which creates `users`, `favorites`, `wallet`, and `positions` tables and seeds wallet balances with $2,000.
 
-- **Search, Favorite, & Buy**: `index.js` now calls the provided Ticketmaster Proxy endpoints directly (`/search?keyword=...&city=...` and `/eventDetail/{id}`) to populate the table and detail panel. Signed-in users can star events into Favorites and book trades through `/trade` (falling back to a local wallet state only if the backend is offline). Price ranges of `-1/-1` disable trading per the assignment rules.
-- **Favorites**: `favorites.js` syncs the favorites list from `/favorites` for the logged-in user, lets you remove items, and provides a quick BUY action that sends trades to `/trade`.
-- **Wallet**: `wallet.js` now loads balances/positions from `/wallet` for the active user and executes BUY/SELL via `/trade`, falling back to the browser-stored wallet only if the server is unreachable.
-- **Demo bootstrapping**: `common.js` stores auth state from the backend, exposes `WalletState`, `AuthState`, and handles per-user favorites/wallet storage.
+```text
+src/main/java/
+├── api/                 # Servlets for auth, search, favorites, wallet, and trades
+├── db/                  # JDBC connection and schema bootstrap
+└── util/                # JSON and shared helpers
+src/main/webapp/
+├── WEB-INF/web.xml      # Servlet mappings
+├── index.html           # Search and trading entry point
+├── favorites.html       # Saved events
+├── wallet.html          # Cash and positions
+└── *.js / *.css         # Client logic and styles
+build-support/           # Local compilation helper and servlet stubs
+setup.sql                # MySQL schema
+```
 
-## Deployment tips
-- Ensure your build copies compiled classes into the exploded webapp (Tomcat needs `.class` files under `WEB-INF/classes`). The Eclipse project output has been pointed at `src/main/webapp/WEB-INF/classes`, so rebuilding the project in Eclipse will drop the `.class` files where Tomcat expects them. You can also generate them locally with `build-support/compile.sh` which targets that folder using the bundled servlet stubs.
-- Update `db/JDBCConnector.java` if your MySQL host, schema name, or credentials differ from the defaults. It now auto-loads the
-  MySQL driver, creates the `ticket_trader` database if missing, and will lay down the core tables/triggers on first use so
-  fresh environments can start without running SQL manually.
-- You can still run the DDL in `setup.sql` yourself; if the schema already exists, the runtime bootstrap will no-op.
-- A tiny `Gson` stub class ships in `src/main/java/Gson.java` to avoid startup failures on servers that still scan for a
-  `Gson` type even though the app now uses the built-in `SimpleJson` helper instead of the external library.
+## Local setup
+
+### Prerequisites
+
+- JDK 17 or newer
+- MySQL 8
+- Apache Tomcat 10.1 or another Servlet 6-compatible container
+- A MySQL Connector/J driver available to the application
+
+### 1. Create the database
+
+```bash
+mysql -u root -p < setup.sql
+```
+
+The application can also create its core schema during startup when the configured database account has sufficient permissions.
+
+### 2. Configure database access
+
+Update the local connection configuration in `src/main/java/db/JDBCConnector.java` for your environment.
+
+> Do not commit real credentials. For any shared or deployed environment, load database settings from environment variables or a secret manager and rotate any credential that has previously been committed.
+
+### 3. Compile the servlets
+
+From Git Bash, WSL, macOS, or Linux:
+
+```bash
+bash build-support/compile.sh
+```
+
+The helper places compiled classes in `src/main/webapp/WEB-INF/classes` for an exploded Tomcat deployment.
+
+### 4. Deploy and run
+
+Configure `src/main/webapp` as an exploded web application in Tomcat, ensure the MySQL driver is on the runtime classpath, and open the deployed context in a browser.
+
+## Engineering notes
+
+- Database-backed operations return visible errors when a servlet or MySQL is unavailable.
+- Foreign keys cascade user deletion into wallet, favorite, and position data.
+- The unique `(user_id, event_id)` constraints prevent duplicate favorites and positions.
+- The project is a simulated marketplace and does not execute real financial transactions or ticket purchases.
+
