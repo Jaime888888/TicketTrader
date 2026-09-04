@@ -16,19 +16,21 @@ public class TradeServlet extends HttpServlet {
             throws ServletException, IOException {
         resp.setContentType("application/json;charset=UTF-8");
 
+        Long authenticatedUserId = AuthUtil.requireUserId(req, resp);
+        if (authenticatedUserId == null) return;
+        long userId = authenticatedUserId;
+
         try (BufferedReader br = req.getReader()) {
             String raw = br.lines().collect(java.util.stream.Collectors.joining());
             java.util.Map<String,String> body = SimpleJson.parseObject(raw);
             if (body == null || body.isEmpty()) { write(resp, JsonResp.error("Missing request body")); return; }
 
-            long userId;
             try {
-                userId = body.containsKey("userId") && body.get("userId") != null && !body.get("userId").isEmpty()
-                        ? Long.parseLong(body.get("userId"))
-                        : DemoUser.ensure(DemoUser.DEFAULT_CASH);
-                DemoUser.seedWallet(userId, DemoUser.DEFAULT_CASH);
+                WalletService.ensureWallet(userId, WalletService.DEFAULT_CASH);
             } catch (Exception e) {
-                write(resp, JsonResp.error("Unable to prepare demo wallet: " + e.getMessage()));
+                e.printStackTrace();
+                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                write(resp, JsonResp.error("Trading is temporarily unavailable"));
                 return;
             }
 
@@ -40,6 +42,10 @@ public class TradeServlet extends HttpServlet {
             BigDecimal minPriceUsd = parseDecimal(body.get("minPriceUsd"));
             BigDecimal maxPriceUsd = parseDecimal(body.get("maxPriceUsd"));
 
+            if (!"BUY".equalsIgnoreCase(side) && !"SELL".equalsIgnoreCase(side)) {
+                write(resp, JsonResp.error("side must be BUY or SELL")); return;
+            }
+            if (eventId.isBlank()) { write(resp, JsonResp.error("eventId is required")); return; }
             if (qty <= 0) { write(resp, JsonResp.error("Quantity must be positive")); return; }
             if (priceUsd == null && minPriceUsd == null && maxPriceUsd == null) { write(resp, JsonResp.error("priceUsd is required")); return; }
 
@@ -47,6 +53,9 @@ public class TradeServlet extends HttpServlet {
             BigDecimal sellPrice = (maxPriceUsd != null) ? maxPriceUsd : (priceUsd != null ? priceUsd : minPriceUsd);
             if (buyPrice == null) buyPrice = sellPrice;
             if (sellPrice == null) sellPrice = buyPrice;
+            if (buyPrice.signum() <= 0 || sellPrice.signum() <= 0) {
+                write(resp, JsonResp.error("Prices must be positive")); return;
+            }
 
             Connection c = null;
             PreparedStatement qCash = null, uCash = null, qPos = null, iPos = null, uPos = null;
@@ -60,7 +69,7 @@ public class TradeServlet extends HttpServlet {
                 qCash.setLong(1, userId);
                 rs = qCash.executeQuery();
                 if (!rs.next()) {
-                    write(resp, new JsonResp(false, "Wallet not found"));
+                    write(resp, new JsonResp<>(false, "Wallet not found"));
                     c.rollback();
                     return;
                 }
@@ -71,7 +80,7 @@ public class TradeServlet extends HttpServlet {
 
                 if ("BUY".equalsIgnoreCase(side)) {
                     if (cash.compareTo(tradeValue) < 0) {
-                        write(resp, new JsonResp(false, "Insufficient cash"));
+                        write(resp, new JsonResp<>(false, "Insufficient cash"));
                         c.rollback();
                         return;
                     }
@@ -123,7 +132,7 @@ public class TradeServlet extends HttpServlet {
                     qPos.setString(2, eventId);
                     rs = qPos.executeQuery();
                     if (!rs.next()) {
-                        write(resp, new JsonResp(false, "No position to sell"));
+                        write(resp, new JsonResp<>(false, "No position to sell"));
                         c.rollback();
                         return;
                     }
@@ -135,7 +144,7 @@ public class TradeServlet extends HttpServlet {
                     rs.close();
 
                     if (qty > oldQty) {
-                        write(resp, new JsonResp(false, "Sell qty exceeds position"));
+                        write(resp, new JsonResp<>(false, "Sell qty exceeds position"));
                         c.rollback();
                         return;
                     }
@@ -166,10 +175,11 @@ public class TradeServlet extends HttpServlet {
                 }
 
                 c.commit();
-                write(resp, new JsonResp(true, "Done"));
+                write(resp, new JsonResp<>(true, "Done"));
             } catch (Exception e) {
                 if (c != null) try { c.rollback(); } catch (Exception ignore) {}
-                write(resp, new JsonResp(false, "DB error: " + e.getMessage()));
+                e.printStackTrace();
+                write(resp, new JsonResp<>(false, "Trade could not be completed"));
             } finally {
                 JDBCConnector.closeQuiet(rs);
                 JDBCConnector.closeQuiet(qCash);
@@ -181,11 +191,12 @@ public class TradeServlet extends HttpServlet {
                 JDBCConnector.closeQuiet(c);
             }
         } catch (Exception e) {
-            write(resp, new JsonResp(false, "Server error: " + e.getMessage()));
+            e.printStackTrace();
+            write(resp, new JsonResp<>(false, "Trade could not be completed"));
         }
     }
 
-    private void write(HttpServletResponse resp, JsonResp jr) throws IOException {
+    private void write(HttpServletResponse resp, JsonResp<?> jr) throws IOException {
         try (PrintWriter out = resp.getWriter()) { out.write(jr.toJson()); }
     }
 

@@ -1,12 +1,14 @@
 # TicketTrader
 
+[![CI](https://github.com/Jaime888888/TicketTrader/actions/workflows/ci.yml/badge.svg)](https://github.com/Jaime888888/TicketTrader/actions/workflows/ci.yml)
+
 A full-stack event marketplace where users can discover live events, save favorites, and simulate ticket trading through a persistent wallet. TicketTrader combines a browser-based interface, Jakarta servlets, Ticketmaster-backed search, and a MySQL data model.
 
 ## Highlights
 
 - Search events by keyword and city
 - View event details and available price ranges
-- Register and sign in with database-backed accounts
+- Register and sign in with salted PBKDF2 password hashes and server-side sessions
 - Save and remove favorite events
 - Buy and sell positions through a persistent wallet
 - Track cash, quantity, average cost, and estimated market value
@@ -41,7 +43,7 @@ The home page calls `/search` with a keyword and city, displays matching events,
 
 ### Authentication and favorites
 
-`/register` and `/login` create and validate users. Signed-in users can persist favorites through `/favorites`; the navigation adapts to the current authentication state.
+`/register` and `/login` create and validate users. The server rotates the session on authentication, stores the account ID in an HTTP-only session cookie, and derives ownership from that session for every wallet, trade, and favorite request.
 
 ### Wallet and trading
 
@@ -53,9 +55,10 @@ Every user receives a starting balance. `/trade` processes buy and sell requests
 | --- | --- |
 | `POST /register` | Create an account |
 | `POST /login` | Authenticate a user |
+| `POST /logout` | Invalidate the current session |
 | `GET /search` | Search available events |
 | `GET /eventDetail/{id}` | Load event details |
-| `GET/POST/DELETE /favorites` | Manage saved events |
+| `GET/POST /favorites` | List or update saved events |
 | `GET /wallet` | Load balances and positions |
 | `POST /trade` | Execute a simulated buy or sell |
 
@@ -73,9 +76,8 @@ See [`setup.sql`](./setup.sql) for the complete schema.
 
 ```text
 src/main/java/
-├── api/                 # Servlets for auth, search, favorites, wallet, and trades
-├── db/                  # JDBC connection and schema bootstrap
-└── util/                # JSON and shared helpers
+├── api/                 # Servlets and shared request helpers
+└── db/                  # JDBC connection and schema bootstrap
 src/main/webapp/
 ├── WEB-INF/web.xml      # Servlet mappings
 ├── index.html           # Search and trading entry point
@@ -90,10 +92,9 @@ setup.sql                # MySQL schema
 
 ### Prerequisites
 
-- JDK 17 or newer
+- JDK 17 or newer and Maven 3.9+
 - MySQL 8
 - Apache Tomcat 10.1 or another Servlet 6-compatible container
-- A MySQL Connector/J driver available to the application
 
 ### 1. Create the database
 
@@ -101,31 +102,46 @@ setup.sql                # MySQL schema
 mysql -u root -p < setup.sql
 ```
 
-The application can also create its core schema during startup when the configured database account has sufficient permissions.
+Create a dedicated local application account and use the same password in the next step:
+
+```sql
+CREATE USER IF NOT EXISTS 'tickettrader'@'localhost' IDENTIFIED BY 'replace-with-a-local-password';
+GRANT ALL PRIVILEGES ON ticket_trader.* TO 'tickettrader'@'localhost';
+```
+
+The application can create missing tables inside the existing `ticket_trader` database, but it does not connect as MySQL root or attempt to create databases.
 
 ### 2. Configure database access
 
-Update the local connection configuration in `src/main/java/db/JDBCConnector.java` for your environment.
-
-> Do not commit real credentials. For any shared or deployed environment, load database settings from environment variables or a secret manager and rotate any credential that has previously been committed.
-
-### 3. Compile the servlets
-
-From Git Bash, WSL, macOS, or Linux:
+Use [`.env.example`](./.env.example) as a local template, replace its placeholder password, and export the values before starting Tomcat. For example, in Bash:
 
 ```bash
-bash build-support/compile.sh
+cp .env.example .env
+# Edit .env, then export it into the current shell.
+set -a
+source .env
+set +a
 ```
 
-The helper places compiled classes in `src/main/webapp/WEB-INF/classes` for an exploded Tomcat deployment.
+`TICKETTRADER_DB_USER` and `TICKETTRADER_DB_PASSWORD` are required. Host, port, and database name have local defaults. The application does not contain a database password and `.env` is ignored by Git.
+
+### 3. Test and package
+
+```bash
+mvn verify
+```
+
+This runs the password-security tests and produces `target/tickettrader.war`.
 
 ### 4. Deploy and run
 
-Configure `src/main/webapp` as an exploded web application in Tomcat, ensure the MySQL driver is on the runtime classpath, and open the deployed context in a browser.
+Deploy `target/tickettrader.war` to Tomcat, configure the database environment variables for the Tomcat process, and open the deployed context in a browser. Maven includes the MySQL driver in the WAR.
 
 ## Engineering notes
 
 - Database-backed operations return visible errors when a servlet or MySQL is unavailable.
+- Passwords are salted and stretched with PBKDF2-HMAC-SHA256; raw passwords are never stored by the browser.
+- User-owned endpoints ignore client identity fields and authorize exclusively through the server session.
 - Foreign keys cascade user deletion into wallet, favorite, and position data.
 - The unique `(user_id, event_id)` constraints prevent duplicate favorites and positions.
 - The project is a simulated marketplace and does not execute real financial transactions or ticket purchases.

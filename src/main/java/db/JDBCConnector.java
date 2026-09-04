@@ -6,18 +6,32 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 public final class JDBCConnector {
-    // TODO: adjust to your database values if different
-    private static final String DB_NAME = "ticket_trader";
-    private static final String BASE_URL =
-            "jdbc:mysql://localhost:3306/?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
+    private static final String DB_NAME = envOrDefault("TICKETTRADER_DB_NAME", "ticket_trader");
+    private static final String DB_HOST = envOrDefault("TICKETTRADER_DB_HOST", "localhost");
+    private static final String DB_PORT = envOrDefault("TICKETTRADER_DB_PORT", "3306");
+    private static final String USER = requiredEnv("TICKETTRADER_DB_USER");
+    private static final String PASS = requiredEnv("TICKETTRADER_DB_PASSWORD");
+    private static final String OPTIONS =
+            "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
     private static final String URL =
-            "jdbc:mysql://localhost:3306/" + DB_NAME + "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
-    private static final String USER = "root";
-    private static final String PASS = "8Jaime8%";
+            "jdbc:mysql://" + DB_HOST + ":" + DB_PORT + "/" + DB_NAME + OPTIONS;
 
     private static volatile boolean schemaEnsured = false;
 
     private JDBCConnector() {}
+
+    private static String envOrDefault(String name, String fallback) {
+        String value = System.getenv(name);
+        return value == null || value.isBlank() ? fallback : value.trim();
+    }
+
+    private static String requiredEnv(String name) {
+        String value = System.getenv(name);
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException(name + " must be set before database access");
+        }
+        return value;
+    }
 
     static {
         try {
@@ -47,11 +61,8 @@ public final class JDBCConnector {
     private static synchronized void ensureSchema() throws SQLException {
         if (schemaEnsured) return;
 
-        // Create the database if missing
-        try (Connection root = DriverManager.getConnection(BASE_URL, USER, PASS);
-             Statement s = root.createStatement()) {
-            s.executeUpdate("CREATE DATABASE IF NOT EXISTS " + DB_NAME +
-                    " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        if (!DB_NAME.matches("[A-Za-z0-9_]+")) {
+            throw new SQLException("TICKETTRADER_DB_NAME contains unsupported characters");
         }
 
         // Create the tables/trigger under the target schema

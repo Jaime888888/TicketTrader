@@ -9,7 +9,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -40,13 +39,17 @@ public class RegisterServlet extends HttpServlet {
                 return;
             }
 
-            if (payload == null || isBlank(payload.email) || isBlank(payload.username) || isBlank(payload.password)) {
+            if (isBlank(payload.email) || isBlank(payload.username) || isBlank(payload.password)) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 write(resp, JsonResp.error("Email, username, and password are required"));
                 return;
             }
+            if (payload.password.length() < 8) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                write(resp, JsonResp.error("Password must be at least 8 characters"));
+                return;
+            }
 
-            DemoUser.ensure(DemoUser.DEFAULT_CASH);
             if (exists("SELECT 1 FROM users WHERE username = ?", payload.username)) {
                 write(resp, JsonResp.error("Username already taken"));
                 return;
@@ -56,17 +59,18 @@ public class RegisterServlet extends HttpServlet {
                 return;
             }
 
-            long id = insertUser(payload.username, payload.email, HashUtil.sha256(payload.password));
-            DemoUser.seedWallet(id, DemoUser.DEFAULT_CASH);
+            long id = insertUser(payload.username, payload.email, PasswordUtil.hash(payload.password));
+            WalletService.ensureWallet(id, WalletService.DEFAULT_CASH);
             UserResponse user = new UserResponse();
             user.id = id;
             user.username = payload.username;
             user.email = payload.email;
+            AuthUtil.signIn(req, id);
             write(resp, JsonResp.ok("Account created", user));
         } catch (Exception e) {
             e.printStackTrace();
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            write(resp, JsonResp.error("Registration failed: " + e.getMessage()));
+            write(resp, JsonResp.error("Registration is temporarily unavailable"));
         }
     }
 

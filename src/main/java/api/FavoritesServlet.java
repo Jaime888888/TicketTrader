@@ -19,11 +19,15 @@ public class FavoritesServlet extends HttpServlet {
             throws ServletException, IOException {
         resp.setContentType("application/json;charset=UTF-8");
 
-        long userId = parseUserId(req.getParameter("userId"));
+        Long authenticatedUserId = AuthUtil.requireUserId(req, resp);
+        if (authenticatedUserId == null) return;
+        long userId = authenticatedUserId;
         try {
-            DemoUser.seedWallet(userId, DemoUser.DEFAULT_CASH);
+            WalletService.ensureWallet(userId, WalletService.DEFAULT_CASH);
         } catch (Exception e) {
-            write(resp, JsonResp.error("Unable to prepare demo user: " + e.getMessage()));
+            e.printStackTrace();
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            write(resp, JsonResp.error("Favorites are temporarily unavailable"));
             return;
         }
 
@@ -51,7 +55,9 @@ public class FavoritesServlet extends HttpServlet {
             }
             write(resp, JsonResp.ok("OK", list));
         } catch (Exception e) {
-            write(resp, JsonResp.error("DB error: " + e.getMessage()));
+            e.printStackTrace();
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            write(resp, JsonResp.error("Favorites could not be loaded"));
         } finally {
             JDBCConnector.closeQuiet(rs);
             JDBCConnector.closeQuiet(ps);
@@ -64,6 +70,10 @@ public class FavoritesServlet extends HttpServlet {
             throws ServletException, IOException {
         resp.setContentType("application/json;charset=UTF-8");
 
+        Long authenticatedUserId = AuthUtil.requireUserId(req, resp);
+        if (authenticatedUserId == null) return;
+        long userId = authenticatedUserId;
+
         try {
             String raw = req.getReader().lines().collect(java.util.stream.Collectors.joining());
             Map<String, String> body = SimpleJson.parseObject(raw);
@@ -72,11 +82,12 @@ public class FavoritesServlet extends HttpServlet {
                 return;
             }
 
-            long userId = parseUserId(body.get("userId"));
             try {
-                DemoUser.seedWallet(userId, DemoUser.DEFAULT_CASH);
+                WalletService.ensureWallet(userId, WalletService.DEFAULT_CASH);
             } catch (Exception e) {
-                write(resp, JsonResp.error("Unable to prepare demo user: " + e.getMessage()));
+                e.printStackTrace();
+                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                write(resp, JsonResp.error("Favorites are temporarily unavailable"));
                 return;
             }
 
@@ -115,27 +126,22 @@ public class FavoritesServlet extends HttpServlet {
                     write(resp, JsonResp.ok("Saved"));
                 }
             } catch (Exception e) {
-                write(resp, JsonResp.error("DB error: " + e.getMessage()));
+                e.printStackTrace();
+                resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                write(resp, JsonResp.error("Favorite could not be updated"));
             } finally {
                 JDBCConnector.closeQuiet(ps);
                 JDBCConnector.closeQuiet(c);
             }
         } catch (Exception e) {
-            write(resp, JsonResp.error("Server error: " + e.getMessage()));
+            e.printStackTrace();
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            write(resp, JsonResp.error("Favorite could not be updated"));
         }
     }
 
-    private void write(HttpServletResponse resp, JsonResp jr) throws IOException {
+    private void write(HttpServletResponse resp, JsonResp<?> jr) throws IOException {
         try (PrintWriter out = resp.getWriter()) { out.write(jr.toJson()); }
-    }
-
-    private long parseUserId(String raw) {
-        try {
-            if (raw != null && !raw.isEmpty()) {
-                return Long.parseLong(raw);
-            }
-        } catch (Exception ignore) { /* fall through to demo user */ }
-        return DemoUser.ensureSafe(DemoUser.DEFAULT_CASH);
     }
 
     private BigDecimal parseDecimal(String raw) {

@@ -80,7 +80,7 @@ public class SearchServlet extends HttpServlet {
         return v == null ? "" : v.trim();
     }
 
-    private void write(HttpServletResponse resp, JsonResp jr) throws IOException {
+    private void write(HttpServletResponse resp, JsonResp<?> jr) throws IOException {
         try (PrintWriter out = resp.getWriter()) { out.write(jr.toJson()); }
     }
 

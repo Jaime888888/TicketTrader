@@ -16,23 +16,22 @@ public class WalletServlet extends HttpServlet {
             throws ServletException, IOException {
         resp.setContentType("application/json;charset=UTF-8");
 
-        String type   = req.getParameter("type");    // "cash" or "positions"
-        String userId = req.getParameter("userId");
+        Long authenticatedUserId = AuthUtil.requireUserId(req, resp);
+        if (authenticatedUserId == null) return;
+        long userId = authenticatedUserId;
+        String type = req.getParameter("type"); // "cash" or "positions"
 
         try {
-            if (userId == null || userId.isEmpty()) {
-                userId = String.valueOf(DemoUser.ensure(DemoUser.DEFAULT_CASH));
-            } else {
-                // Make sure the wallet exists for the requested user
-                DemoUser.seedWallet(Long.parseLong(userId), DemoUser.DEFAULT_CASH);
-            }
+            WalletService.ensureWallet(userId, WalletService.DEFAULT_CASH);
         } catch (Exception e) {
-            write(resp, new JsonResp(false, "Unable to prepare demo wallet: " + e.getMessage()));
+            e.printStackTrace();
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            write(resp, new JsonResp<>(false, "Unable to prepare wallet"));
             return;
         }
 
         if (type == null) {
-            write(resp, new JsonResp(false, "Missing parameters"));
+            write(resp, new JsonResp<>(false, "Missing parameters"));
             return;
         }
 
@@ -43,18 +42,18 @@ public class WalletServlet extends HttpServlet {
             c = JDBCConnector.get();
             if ("cash".equalsIgnoreCase(type)) {
                 ps = c.prepareStatement("SELECT cash_usd FROM wallet WHERE user_id=?");
-                ps.setLong(1, Long.parseLong(userId));
+                ps.setLong(1, userId);
                 rs = ps.executeQuery();
                 if (rs.next()) {
                     Map<String, Object> m = new HashMap<>();
                     m.put("cashUsd", rs.getBigDecimal(1));
-                    write(resp, new JsonResp(true, "OK", m));
+                    write(resp, new JsonResp<>(true, "OK", m));
                 } else {
-                    write(resp, new JsonResp(false, "Wallet not found"));
+                    write(resp, new JsonResp<>(false, "Wallet not found"));
                 }
             } else if ("positions".equalsIgnoreCase(type)) {
                 ps = c.prepareStatement("SELECT id,event_id,event_name,qty,total_cost_usd,min_price_usd,max_price_usd FROM positions WHERE user_id=? ORDER BY id DESC");
-                ps.setLong(1, Long.parseLong(userId));
+                ps.setLong(1, userId);
                 rs = ps.executeQuery();
                 java.util.List<Map<String,Object>> list = new ArrayList<>();
                 while (rs.next()) {
@@ -72,12 +71,13 @@ public class WalletServlet extends HttpServlet {
                     m.put("totalCostUsd", total);
                     list.add(m);
                 }
-                write(resp, new JsonResp(true, "OK", list));
+                write(resp, new JsonResp<>(true, "OK", list));
             } else {
-                write(resp, new JsonResp(false, "Unknown type"));
+                write(resp, new JsonResp<>(false, "Unknown type"));
             }
         } catch (Exception e) {
-            write(resp, new JsonResp(false, "DB error: " + e.getMessage()));
+            e.printStackTrace();
+            write(resp, new JsonResp<>(false, "Wallet could not be loaded"));
         } finally {
             JDBCConnector.closeQuiet(rs);
             JDBCConnector.closeQuiet(ps);
@@ -85,7 +85,7 @@ public class WalletServlet extends HttpServlet {
         }
     }
 
-    private void write(HttpServletResponse resp, JsonResp jr) throws IOException {
+    private void write(HttpServletResponse resp, JsonResp<?> jr) throws IOException {
         try (PrintWriter out = resp.getWriter()) { out.write(jr.toJson()); }
     }
 }

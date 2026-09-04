@@ -4,17 +4,12 @@ const FAVORITES_KEY_PREFIX = 'TT_FAVORITES_V1';
 const CURRENT_USER_KEY = 'TT_CURRENT_USER';
 const CURRENT_USER_OBJ_KEY = 'TT_CURRENT_USER_OBJ';
 const STARTING_CASH = 3000;
-const AUTH_STORE_KEY = 'TT_AUTH_USERS_V1';
-const SESSION_RESET_KEY = 'TT_SESSION_LOGOUT_DONE';
 
 function setCurrentUser(user){
   if (!user || !user.id) return;
   try {
     localStorage.setItem(CURRENT_USER_KEY, user.id);
-    localStorage.setItem('TT_USER_ID', user.id);
-    localStorage.setItem('userId', user.id);
     localStorage.setItem('TT_USERNAME', user.username || '');
-    localStorage.setItem('username', user.username || '');
     localStorage.setItem(CURRENT_USER_OBJ_KEY, JSON.stringify(user));
   } catch (e) { console.warn('Unable to persist user', e); }
 }
@@ -22,24 +17,10 @@ function setCurrentUser(user){
 function clearCurrentUser(){
   try {
     localStorage.removeItem(CURRENT_USER_KEY);
-    localStorage.removeItem('TT_USER_ID');
-    localStorage.removeItem('userId');
     localStorage.removeItem('TT_USERNAME');
-    localStorage.removeItem('username');
     localStorage.removeItem(CURRENT_USER_OBJ_KEY);
   } catch {}
 }
-
-// Ensure every fresh browser session starts logged out so the first view always
-// matches the assignment expectation. We only clear once per tab/session to
-// avoid logging the user out again after they intentionally sign in.
-try {
-  const sess = window.sessionStorage;
-  if (sess && !sess.getItem(SESSION_RESET_KEY)) {
-    clearCurrentUser();
-    sess.setItem(SESSION_RESET_KEY, '1');
-  }
-} catch {}
 
 function currentUser(){
   try {
@@ -86,9 +67,13 @@ const API = {
     setCurrentUser(user);
     renderNav();
   },
-  logout(){
-    clearCurrentUser();
-    renderNav();
+  async logout(){
+    try {
+      await authRequest('/logout', {});
+    } finally {
+      clearCurrentUser();
+      renderNav();
+    }
   },
 };
 
@@ -137,44 +122,6 @@ async function registerUser({ email, username, password }){
 }
 
 window.AuthState = { loginUser, registerUser, currentUser };
-
-function loadAuthUsers(){
-  try {
-    const raw = localStorage.getItem(AUTH_STORE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch { return []; }
-}
-
-function saveAuthUsers(users){
-  try { localStorage.setItem(AUTH_STORE_KEY, JSON.stringify(users)); } catch {}
-}
-
-function registerLocal({ email, username, password }){
-  if (!email || !username || !password) {
-    return { success: false, message: 'Email, username, and password are required' };
-  }
-  const users = loadAuthUsers();
-  if (users.some(u => u.username === username)) {
-    return { success: false, message: 'Username already taken (local)' };
-  }
-  if (users.some(u => u.email === email)) {
-    return { success: false, message: 'Email already registered (local)' };
-  }
-  const user = { id: Date.now(), email, username, password };
-  users.push(user);
-  saveAuthUsers(users);
-  return { success: true, message: 'Account created locally (offline mode)', data: user };
-}
-
-function loginLocal(usernameOrEmail, password){
-  const users = loadAuthUsers();
-  const user = users.find(u => u.username === usernameOrEmail || u.email === usernameOrEmail);
-  if (!user) return { success: false, message: 'User not found (local)' };
-  if (user.password !== password) return { success: false, message: 'Wrong password (local)' };
-  return { success: true, message: 'Logged in locally (offline mode)', data: { id: user.id, username: user.username, email: user.email } };
-}
 
 function walletStore(){
   try {
@@ -287,11 +234,11 @@ function applyTradeToState({ side, eventId, eventName, qty, priceUsd, minPriceUs
 
 async function fetchWalletRemote(){
   if (!API.loggedIn) throw new Error('Please log in to view your wallet');
-  const cashRes = await fetch(apiPath(`/wallet?type=cash&userId=${API.userId}`));
+  const cashRes = await fetch(apiPath('/wallet?type=cash'));
   const cashJson = JSON.parse(await cashRes.text() || '{}');
   if (!cashRes.ok || !cashJson.success) throw new Error(cashJson.message || `Cash fetch failed (${cashRes.status})`);
 
-  const posRes = await fetch(apiPath(`/wallet?type=positions&userId=${API.userId}`));
+  const posRes = await fetch(apiPath('/wallet?type=positions'));
   const posJsonRaw = await posRes.text();
   let posJson;
   try { posJson = JSON.parse(posJsonRaw || '{}'); } catch (e) { throw new Error(`Positions parse failed: ${posJsonRaw?.slice(0,150)}`); }
@@ -311,7 +258,7 @@ async function tradeRemote(payload){
     const res = await fetch(apiPath('/trade'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...payload, userId: API.userId }),
+      body: JSON.stringify(payload),
     });
     const text = await res.text();
     let json = {};
@@ -397,7 +344,7 @@ function removeFavorite(eventId){
 
 async function syncFavoritesFromServer(){
   if (!API.loggedIn) return [];
-  const url = apiPath(`/favorites?userId=${API.userId}`);
+  const url = apiPath('/favorites');
   const res = await fetch(url);
   const text = await res.text();
   let json = {};
@@ -416,7 +363,7 @@ async function toggleFavoriteRemote(fav){
   const res = await fetch(apiPath('/favorites'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...fav, action, userId: API.userId }),
+    body: JSON.stringify({ ...fav, action }),
   });
   const text = await res.text();
   let json = {};
@@ -460,6 +407,9 @@ function renderNav(){
   }
   nav.innerHTML = links.join('');
   const btn = document.getElementById('logoutBtn');
-  if (btn) btn.onclick = () => { API.logout(); window.location.href = 'index.html'; };
+  if (btn) btn.onclick = async () => {
+    await API.logout();
+    window.location.href = 'index.html';
+  };
 }
 document.addEventListener('DOMContentLoaded', renderNav);

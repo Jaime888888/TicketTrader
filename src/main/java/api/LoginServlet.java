@@ -8,7 +8,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -39,23 +38,19 @@ public class LoginServlet extends HttpServlet {
                 return;
             }
 
-            DemoUser.ensure(DemoUser.DEFAULT_CASH);
             UserRecord user = findUser(payload.username);
-            if (user == null) {
-                write(resp, JsonResp.error("User not found"));
-                return;
-            }
-            DemoUser.seedWallet(user.id, DemoUser.DEFAULT_CASH);
-            String hashed = hash(payload.password);
-            if (!hashed.equals(user.passwordHash)) {
+            if (user == null || !PasswordUtil.verify(payload.password, user.passwordHash)) {
+                resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 write(resp, JsonResp.error("Invalid credentials"));
                 return;
             }
+            WalletService.ensureWallet(user.id, WalletService.DEFAULT_CASH);
+            AuthUtil.signIn(req, user.id);
             write(resp, JsonResp.ok("Login successful", new UserResponse(user)));
         } catch (Exception e) {
             e.printStackTrace();
             resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            write(resp, JsonResp.error("Login failed: " + e.getMessage()));
+            write(resp, JsonResp.error("Login is temporarily unavailable"));
         }
     }
 
@@ -116,8 +111,6 @@ public class LoginServlet extends HttpServlet {
     }
 
     private boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }
-
-    static String hash(String raw) { return HashUtil.sha256(raw); }
 
     private static class LoginPayload {
         String username;
